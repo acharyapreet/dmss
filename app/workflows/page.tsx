@@ -39,6 +39,8 @@ import {
   XCircle,
   MoreHorizontal,
   PlayCircle,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -60,6 +62,9 @@ export default function WorkflowsPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [workflows, setWorkflows] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [selectedWorkflow, setSelectedWorkflow] = useState<any>(null)
+  const [showArchived, setShowArchived] = useState(false)
   const [createForm, setCreateForm] = useState({
     name: '',
     description: '',
@@ -72,7 +77,17 @@ export default function WorkflowsPage() {
       if (!token) return
       
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/workflows`, {
+        // Build query parameters
+        let queryParams = 'limit=20&page=1'
+        
+        if (showArchived) {
+          queryParams += '&status=archived'
+        } else {
+          // Exclude archived workflows from normal view
+          queryParams += '&status[ne]=archived'
+        }
+        
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/workflows?${queryParams}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -81,9 +96,13 @@ export default function WorkflowsPage() {
         if (response.ok) {
           const data = await response.json()
           setWorkflows(data.data?.workflows || data.data || [])
+        } else {
+          console.error('Failed to fetch workflows:', response.status, response.statusText)
+          setWorkflows([]) // Set empty array on error
         }
       } catch (error) {
         console.error('Failed to fetch workflows:', error)
+        setWorkflows([]) // Set empty array on error
       } finally {
         setLoading(false)
       }
@@ -92,7 +111,7 @@ export default function WorkflowsPage() {
     if (isAuthenticated) {
       fetchWorkflows()
     }
-  }, [isAuthenticated, token])
+  }, [isAuthenticated, token, showArchived])
 
   if (!isAuthenticated) {
     return <LoginForm />
@@ -188,26 +207,17 @@ Steps: ${workflow.steps?.length || 0}
     const confirmed = confirm(`Advance workflow "${workflow.name}" to the next step?`)
     if (!confirmed) return
     
-    console.log('⚡ Advancing workflow:', workflow._id, 'Current status:', workflow.status)
+    console.log('⚡ Advancing workflow:', workflow._id, 'Current progress:', workflow.progress)
     
     try {
-      // Determine next status based on current status
-      let nextStatus = workflow.status
-      if (workflow.status === 'pending') {
-        nextStatus = 'in-progress'
-      } else if (workflow.status === 'in-progress') {
-        nextStatus = 'completed'
-      }
+      console.log('📤 Sending advance request...')
       
-      console.log('📤 Updating workflow status to:', nextStatus)
-      
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/workflows/${workflow._id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/workflows/${workflow._id}/advance`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: nextStatus })
+        }
       })
       
       console.log('📥 Advance response status:', response.status)
@@ -217,7 +227,7 @@ Steps: ${workflow.steps?.length || 0}
         console.log('📥 Advance response data:', data)
         const updatedWorkflow = data.data?.workflow || data.data
         setWorkflows(prev => prev.map((w: any) => w._id === workflow._id ? updatedWorkflow : w))
-        alert(`Workflow ${nextStatus === 'completed' ? 'completed' : 'advanced'} successfully`)
+        alert(`Workflow advanced to ${updatedWorkflow.progress}%`)
       } else {
         const data = await response.json()
         console.error('❌ Advance failed:', data)
@@ -229,6 +239,78 @@ Steps: ${workflow.steps?.length || 0}
     }
   }
 
+  const handleMoveBackward = async (workflow: any) => {
+    if (!token) return
+    
+    const confirmed = confirm(`Move workflow "${workflow.name}" backward to the previous step?`)
+    if (!confirmed) return
+    
+    console.log('⬅️ Moving workflow backward:', workflow._id, 'Current progress:', workflow.progress)
+    
+    try {
+      console.log('📤 Sending backward request...')
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/workflows/${workflow._id}/backward`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      console.log('📥 Backward response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('📥 Backward response data:', data)
+        const updatedWorkflow = data.data?.workflow || data.data
+        setWorkflows(prev => prev.map((w: any) => w._id === workflow._id ? updatedWorkflow : w))
+        alert(`Workflow moved back to ${updatedWorkflow.progress}%`)
+      } else {
+        const data = await response.json()
+        console.error('❌ Backward failed:', data)
+        alert(`Failed to move workflow backward: ${data.message}`)
+      }
+    } catch (error) {
+      console.error('❌ Backward error:', error)
+      alert('Failed to move workflow backward')
+    }
+  }
+
+  const handleArchiveWorkflow = async (workflow: any) => {
+    if (!token) return
+    
+    const isArchiving = workflow.status !== 'archived'
+    const action = isArchiving ? 'archive' : 'unarchive'
+    const confirmed = confirm(`Are you sure you want to ${action} "${workflow.name}"?`)
+    if (!confirmed) return
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/workflows/${workflow._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: isArchiving ? 'archived' : 'completed'
+        })
+      })
+      
+      if (response.ok) {
+        // Remove workflow from current view since it's now archived/unarchived
+        setWorkflows(prev => prev.filter((w: any) => w._id !== workflow._id))
+        alert(`Workflow ${action}d successfully`)
+      } else {
+        const data = await response.json()
+        alert(`Failed to ${action} workflow: ${data.message}`)
+      }
+    } catch (error) {
+      console.error(`Failed to ${action} workflow:`, error)
+      alert(`Failed to ${action} workflow`)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -237,88 +319,112 @@ Steps: ${workflow.steps?.length || 0}
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Workflows</h1>
-              <p className="text-muted-foreground">Track and manage document workflows</p>
+              <h1 className="text-2xl font-bold text-foreground">
+                {showArchived ? 'Archived Workflows' : 'Workflows'}
+              </h1>
+              <p className="text-muted-foreground">
+                {showArchived ? 'View and manage archived workflows' : 'Track and manage document workflows'}
+              </p>
             </div>
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Workflow
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[525px]">
-                <DialogHeader>
-                  <DialogTitle>Start New Workflow</DialogTitle>
-                  <DialogDescription>
-                    Select a template and provide details to start a new workflow.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="wf-name">Workflow Name</Label>
-                    <Input 
-                      id="wf-name" 
-                      placeholder="Enter workflow name"
-                      value={createForm.name}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="wf-template">Template</Label>
-                    <Select value={createForm.document} onValueChange={(value) => setCreateForm(prev => ({ ...prev, document: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select template" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {workflowTemplates.slice(1).map((template) => (
-                          <SelectItem key={template} value={template.toLowerCase().replace(" ", "-")}>
-                            {template}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="wf-description">Description</Label>
-                    <Textarea 
-                      id="wf-description" 
-                      placeholder="Describe the purpose of this workflow"
-                      value={createForm.description}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="wf-document">Attach Document (Optional)</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select document to attach" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="budget-2025">Budget Proposal 2025</SelectItem>
-                        <SelectItem value="infrastructure">Infrastructure Report</SelectItem>
-                        <SelectItem value="environmental">Environmental Assessment</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => {
-                    setIsCreateDialogOpen(false)
-                    setCreateForm({ name: '', description: '', document: '' })
-                  }}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={() => handleCreateWorkflow(createForm)}
-                    disabled={!createForm.name}
-                  >
-                    <PlayCircle className="w-4 h-4 mr-2" />
-                    Start Workflow
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowArchived(!showArchived)}
+              >
+                {showArchived ? (
+                  <>
+                    <ArchiveRestore className="w-4 h-4 mr-2" />
+                    View Active
+                  </>
+                ) : (
+                  <>
+                    <Archive className="w-4 h-4 mr-2" />
+                    View Archived
+                  </>
+                )}
+              </Button>
+              {!showArchived && (
+                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Workflow
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[525px]">
+                    <DialogHeader>
+                      <DialogTitle>Start New Workflow</DialogTitle>
+                      <DialogDescription>
+                        Select a template and provide details to start a new workflow.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="wf-name">Workflow Name</Label>
+                        <Input 
+                          id="wf-name" 
+                          placeholder="Enter workflow name"
+                          value={createForm.name}
+                          onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="wf-template">Template</Label>
+                        <Select value={createForm.document} onValueChange={(value) => setCreateForm(prev => ({ ...prev, document: value }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select template" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {workflowTemplates.slice(1).map((template) => (
+                              <SelectItem key={template} value={template.toLowerCase().replace(" ", "-")}>
+                                {template}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="wf-description">Description</Label>
+                        <Textarea 
+                          id="wf-description" 
+                          placeholder="Describe the purpose of this workflow"
+                          value={createForm.description}
+                          onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="wf-document">Attach Document (Optional)</Label>
+                        <Select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select document to attach" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="budget-2025">Budget Proposal 2025</SelectItem>
+                            <SelectItem value="infrastructure">Infrastructure Report</SelectItem>
+                            <SelectItem value="environmental">Environmental Assessment</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => {
+                        setIsCreateDialogOpen(false)
+                        setCreateForm({ name: '', description: '', document: '' })
+                      }}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={() => handleCreateWorkflow(createForm)}
+                        disabled={!createForm.name}
+                      >
+                        <PlayCircle className="w-4 h-4 mr-2" />
+                        Start Workflow
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </div>
 
           {/* Stats */}
@@ -464,16 +570,10 @@ Steps: ${workflow.steps?.length || 0}
                              workflow.status === 'cancelled' ? 'Cancelled' : 'Draft'}
                           </span>
                           <span className="text-sm font-medium">
-                            {workflow.status === 'completed' ? '100%' : 
-                             workflow.status === 'in-progress' ? '75%' : 
-                             workflow.status === 'pending' ? '25%' : '0%'}
+                            {workflow.progress || 25}%
                           </span>
                         </div>
-                        <Progress value={
-                          workflow.status === 'completed' ? 100 : 
-                          workflow.status === 'in-progress' ? 75 : 
-                          workflow.status === 'pending' ? 25 : 0
-                        } className="h-2" />
+                        <Progress value={workflow.progress || 25} className="h-2" />
                         <div className="flex items-center justify-end gap-2 mt-2">
                           <Button variant="ghost" size="sm" onClick={() => handleViewWorkflow(workflow)}>
                             <Eye className="w-4 h-4 mr-1" />
@@ -485,6 +585,38 @@ Steps: ${workflow.steps?.length || 0}
                               Advance
                             </Button>
                           )}
+                          {(user?.role === "admin" || user?.role === "manager") && (workflow.progress || 25) > 25 && (
+                            <Button variant="outline" size="sm" onClick={() => handleMoveBackward(workflow)}>
+                              ←
+                              Back
+                            </Button>
+                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleViewWorkflow(workflow)}>
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleArchiveWorkflow(workflow)}>
+                                {workflow.status === 'archived' ? (
+                                  <>
+                                    <ArchiveRestore className="w-4 h-4 mr-2" />
+                                    Unarchive
+                                  </>
+                                ) : (
+                                  <>
+                                    <Archive className="w-4 h-4 mr-2" />
+                                    Archive
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     </div>
@@ -498,5 +630,3 @@ Steps: ${workflow.steps?.length || 0}
     </div>
   )
 }
-
-

@@ -53,7 +53,7 @@ export function RegisterForm() {
         lastName: formData.lastName,
         email: formData.email,
         password: formData.password,
-        role: formData.role,
+        role: "user", // Force user role for registration
         department: formData.department,
         position: formData.position
       })
@@ -161,16 +161,17 @@ export function RegisterForm() {
 
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
-                <Select value={formData.role} onValueChange={(value) => handleChange("role", value)}>
+                <Select value="user" disabled>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select role" />
+                    <SelectValue placeholder="User" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Only administrators can assign manager or admin roles
+                </p>
               </div>
 
               <div className="space-y-2">

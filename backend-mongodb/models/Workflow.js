@@ -49,8 +49,14 @@ const workflowSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'in-progress', 'completed', 'cancelled'],
+    enum: ['pending', 'in-progress', 'completed', 'cancelled', 'archived'],
     default: 'pending'
+  },
+  progress: {
+    type: Number,
+    default: 25,
+    min: 0,
+    max: 100
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

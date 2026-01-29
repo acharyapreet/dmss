@@ -80,36 +80,42 @@ export function AdminDashboard() {
       if (!token) return
       
       try {
-        // Fetch dashboard stats
-        const statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/dashboard/stats`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+        // Make all API calls in parallel for better performance
+        const [statsResponse, usersResponse, activitiesResponse] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/dashboard/stats`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/dashboard/users?limit=10`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/dashboard/activities?limit=10`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ])
         
+        // Process responses
         if (statsResponse.ok) {
           const statsData = await statsResponse.json()
           setStats(statsData.data?.stats || {})
+        } else {
+          console.error('Failed to fetch stats:', statsResponse.status)
+          setStats({})
         }
 
-        // Fetch recent users
-        const usersResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/dashboard/users`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        
         if (usersResponse.ok) {
           const usersData = await usersResponse.json()
-          // Ensure users is always an array
           setUsers(Array.isArray(usersData.data?.users) ? usersData.data.users : [])
+        } else {
+          console.error('Failed to fetch users:', usersResponse.status)
+          setUsers([])
         }
 
-        // Fetch recent activities
-        const activitiesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/dashboard/activities`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        
         if (activitiesResponse.ok) {
           const activitiesData = await activitiesResponse.json()
-          // Ensure activities is always an array
           setActivities(Array.isArray(activitiesData.data?.activities) ? activitiesData.data.activities : [])
+        } else {
+          console.error('Failed to fetch activities:', activitiesResponse.status)
+          setActivities([])
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error)

@@ -18,7 +18,12 @@ router.get('/', authenticate, async (req, res) => {
       query.owner = req.user._id;
     }
     
-    if (status) query.status = status;
+    // Handle status filtering including exclusion
+    if (status) {
+      query.status = status;
+    } else if (req.query['status[ne]']) {
+      query.status = { $ne: req.query['status[ne]'] };
+    }
     if (category) query.category = category;
     if (search) {
       query.$or = [
@@ -28,7 +33,7 @@ router.get('/', authenticate, async (req, res) => {
     }
 
     const caseFiles = await CaseFile.find(query)
-      .populate('owner', 'firstName lastName fullName email')
+      .populate('owner', 'firstName lastName fullName')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);

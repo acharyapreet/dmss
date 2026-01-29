@@ -38,6 +38,8 @@ import {
   MoreHorizontal,
   Calendar,
   User,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -66,6 +68,9 @@ export default function DocumentsPage() {
     type: '',
     description: ''
   })
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<any>(null)
+  const [showArchived, setShowArchived] = useState(false)
 
   // Fetch documents from API
   useEffect(() => {
@@ -73,7 +78,17 @@ export default function DocumentsPage() {
       if (!token) return
       
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/documents`, {
+        // Build query parameters
+        let queryParams = 'limit=20&page=1'
+        
+        if (showArchived) {
+          queryParams += '&status=archived'
+        } else {
+          // Exclude archived documents from normal view
+          queryParams += '&status[ne]=archived'
+        }
+        
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/documents?${queryParams}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -82,9 +97,13 @@ export default function DocumentsPage() {
         if (response.ok) {
           const data = await response.json()
           setDocuments(data.data?.documents || data.data || [])
+        } else {
+          console.error('Failed to fetch documents:', response.status, response.statusText)
+          setDocuments([]) // Set empty array on error
         }
       } catch (error) {
         console.error('Failed to fetch documents:', error)
+        setDocuments([]) // Set empty array on error
       } finally {
         setLoading(false)
       }
@@ -93,7 +112,7 @@ export default function DocumentsPage() {
     if (isAuthenticated) {
       fetchDocuments()
     }
-  }, [isAuthenticated, token])
+  }, [isAuthenticated, token, showArchived])
 
   if (!isAuthenticated) {
     return <LoginForm />
@@ -117,16 +136,8 @@ export default function DocumentsPage() {
 
   // Handle document operations
   const handleViewDocument = (doc: any) => {
-    const details = `
-Document Details:
-Title: ${doc.title}
-Type: ${doc.type}
-Status: ${doc.status}
-Description: ${doc.description || 'No description'}
-Created: ${new Date(doc.createdAt).toLocaleString()}
-Owner: ${doc.owner?.fullName || doc.owner?.firstName + ' ' + doc.owner?.lastName || 'Unknown'}
-    `.trim()
-    alert(details)
+    setSelectedDocument(doc)
+    setIsViewDialogOpen(true)
   }
 
   const handleEditDocument = async (doc: any) => {
@@ -165,7 +176,7 @@ Owner: ${doc.owner?.fullName || doc.owner?.firstName + ' ' + doc.owner?.lastName
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${doc.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.txt`
+    a.download = `${doc.title.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}.txt`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -197,6 +208,76 @@ Owner: ${doc.owner?.fullName || doc.owner?.firstName + ' ' + doc.owner?.lastName
     } catch (error) {
       console.error('Failed to delete document:', error)
       alert('Failed to delete document')
+    }
+  }
+
+  const handleArchiveDocument = async (doc: any) => {
+    if (!token) return
+    
+    const isArchiving = doc.status !== 'archived'
+    const action = isArchiving ? 'archive' : 'unarchive'
+    const confirmed = confirm(`Are you sure you want to ${action} "${doc.title}"?`)
+    if (!confirmed) return
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/documents/${doc._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: isArchiving ? 'archived' : 'approved',
+          archivedAt: isArchiving ? new Date().toISOString() : null
+        })
+      })
+      
+      if (response.ok) {
+        // Remove document from current view since it's now archived/unarchived
+        setDocuments(prev => prev.filter((d: any) => d._id !== doc._id))
+        alert(`Document ${action}d successfully`)
+      } else {
+        const data = await response.json()
+        alert(`Failed to ${action} document: ${data.message}`)
+      }
+    } catch (error) {
+      console.error(`Failed to ${action} document:`, error)
+      alert(`Failed to ${action} document`)
+    }
+  }
+
+  const handleArchiveDocument = async (doc: any) => {
+    if (!token) return
+    
+    const isArchiving = doc.status !== 'archived'
+    const action = isArchiving ? 'archive' : 'unarchive'
+    const confirmed = confirm(`Are you sure you want to ${action} "${doc.title}"?`)
+    if (!confirmed) return
+    
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/documents/${doc._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: isArchiving ? 'archived' : 'approved',
+          archivedAt: isArchiving ? new Date().toISOString() : null
+        })
+      })
+      
+      if (response.ok) {
+        // Remove document from current view since it's now archived/unarchived
+        setDocuments(prev => prev.filter((d: any) => d._id !== doc._id))
+        alert(`Document ${action}d successfully`)
+      } else {
+        const data = await response.json()
+        alert(`Failed to ${action} document: ${data.message}`)
+      }
+    } catch (error) {
+      console.error(`Failed to ${action} document:`, error)
+      alert(`Failed to ${action} document`)
     }
   }
 
@@ -247,23 +328,45 @@ Owner: ${doc.owner?.fullName || doc.owner?.firstName + ' ' + doc.owner?.lastName
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Documents</h1>
-                <p className="text-muted-foreground">Manage and organize all system documents</p>
+                <h1 className="text-2xl font-bold text-foreground">
+                  {showArchived ? 'Archived Documents' : 'Documents'}
+                </h1>
+                <p className="text-muted-foreground">
+                  {showArchived ? 'View and manage archived documents' : 'Manage and organize all system documents'}
+                </p>
               </div>
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Document
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[525px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New Document</DialogTitle>
-                    <DialogDescription>
-                      Fill in the details to create a new document in the system.
-                    </DialogDescription>
-                  </DialogHeader>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowArchived(!showArchived)}
+                >
+                  {showArchived ? (
+                    <>
+                      <ArchiveRestore className="w-4 h-4 mr-2" />
+                      View Active
+                    </>
+                  ) : (
+                    <>
+                      <Archive className="w-4 h-4 mr-2" />
+                      View Archived
+                    </>
+                  )}
+                </Button>
+                {!showArchived && (
+                  <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <Plus className="w-4 h-4 mr-2" />
+                        New Document
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[525px]">
+                      <DialogHeader>
+                        <DialogTitle>Create New Document</DialogTitle>
+                        <DialogDescription>
+                          Fill in the details to create a new document in the system.
+                        </DialogDescription>
+                      </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
                       <Label htmlFor="title">Document Title</Label>
@@ -448,6 +551,19 @@ Owner: ${doc.owner?.fullName || doc.owner?.firstName + ' ' + doc.owner?.lastName
                                   <Download className="w-4 h-4 mr-2" />
                                   Download
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleArchiveDocument(doc)}>
+                                  {doc.status === 'archived' ? (
+                                    <>
+                                      <ArchiveRestore className="w-4 h-4 mr-2" />
+                                      Unarchive
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Archive className="w-4 h-4 mr-2" />
+                                      Archive
+                                    </>
+                                  )}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem 
                                   className="text-destructive" 
                                   onClick={() => handleDeleteDocument(doc)}
@@ -465,6 +581,59 @@ Owner: ${doc.owner?.fullName || doc.owner?.firstName + ' ' + doc.owner?.lastName
                 </div>
               </CardContent>
             </Card>
+
+            {/* View Document Dialog */}
+            <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Document Details</DialogTitle>
+                  <DialogDescription>
+                    Review document information and details.
+                  </DialogDescription>
+                </DialogHeader>
+                {selectedDocument && (
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium">Title</label>
+                      <p className="text-sm text-muted-foreground">{selectedDocument.title}</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium">Type</label>
+                      <p className="text-sm text-muted-foreground capitalize">{selectedDocument.type}</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium">Status</label>
+                      <StatusBadge status={selectedDocument.status as "pending" | "approved" | "rejected"} />
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium">Description</label>
+                      <p className="text-sm text-muted-foreground">{selectedDocument.description || 'No description provided'}</p>
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium">Created By</label>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedDocument.owner?.fullName || selectedDocument.owner?.firstName + ' ' + selectedDocument.owner?.lastName || 'Unknown'}
+                      </p>
+                    </div>
+                    <div className="grid gap-2">
+                      <label className="text-sm font-medium">Created Date</label>
+                      <p className="text-sm text-muted-foreground">{new Date(selectedDocument.createdAt).toLocaleString()}</p>
+                    </div>
+                    {selectedDocument.updatedAt && selectedDocument.updatedAt !== selectedDocument.createdAt && (
+                      <div className="grid gap-2">
+                        <label className="text-sm font-medium">Last Updated</label>
+                        <p className="text-sm text-muted-foreground">{new Date(selectedDocument.updatedAt).toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                    Close
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </main>
       </div>

@@ -57,44 +57,53 @@ export function UserDashboard() {
       if (!token) return
       
       try {
-        // Fetch stats
-        const statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/dashboard/stats`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
+        // Make all API calls in parallel for better performance
+        const [statsResponse, docsResponse, workflowsResponse, caseFilesResponse] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/dashboard/stats`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/documents?limit=4&status[ne]=archived`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/workflows?limit=3&status[ne]=archived`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/case-files?limit=3&status[ne]=archived`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ])
         
+        // Process responses
         if (statsResponse.ok) {
           const statsData = await statsResponse.json()
           setStats(statsData.data.stats)
+        } else {
+          console.error('Failed to fetch stats:', statsResponse.status)
+          setStats({})
         }
 
-        // Fetch user's documents
-        const docsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/documents?limit=4`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        
         if (docsResponse.ok) {
           const docsData = await docsResponse.json()
           setDocuments(docsData.data.documents || [])
+        } else {
+          console.error('Failed to fetch documents:', docsResponse.status)
+          setDocuments([])
         }
 
-        // Fetch user's workflows
-        const workflowsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/workflows?limit=3`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        
         if (workflowsResponse.ok) {
           const workflowsData = await workflowsResponse.json()
           setWorkflows(workflowsData.data.workflows || [])
+        } else {
+          console.error('Failed to fetch workflows:', workflowsResponse.status)
+          setWorkflows([])
         }
 
-        // Fetch user's case files
-        const caseFilesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/case-files?limit=3`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        
         if (caseFilesResponse.ok) {
           const caseFilesData = await caseFilesResponse.json()
           setCaseFiles(caseFilesData.data.caseFiles || [])
+        } else {
+          console.error('Failed to fetch case files:', caseFilesResponse.status)
+          setCaseFiles([])
         }
 
       } catch (error) {

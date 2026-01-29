@@ -38,6 +38,7 @@ import {
   Paperclip,
   MoreHorizontal,
   Archive,
+  ArchiveRestore,
   Trash2,
 } from "lucide-react"
 import {
@@ -65,6 +66,7 @@ export default function CaseFilesPage() {
     category: '',
     description: ''
   })
+  const [showArchived, setShowArchived] = useState(false)
 
   // Fetch case files from API
   useEffect(() => {
@@ -72,7 +74,17 @@ export default function CaseFilesPage() {
       if (!token) return
       
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/case-files`, {
+        // Build query parameters
+        let queryParams = 'limit=20&page=1'
+        
+        if (showArchived) {
+          queryParams += '&status=archived'
+        } else {
+          // Exclude archived case files from normal view
+          queryParams += '&status[ne]=archived'
+        }
+        
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/case-files?${queryParams}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -81,9 +93,13 @@ export default function CaseFilesPage() {
         if (response.ok) {
           const data = await response.json()
           setCaseFiles(data.data?.caseFiles || data.data || [])
+        } else {
+          console.error('Failed to fetch case files:', response.status, response.statusText)
+          setCaseFiles([]) // Set empty array on error
         }
       } catch (error) {
         console.error('Failed to fetch case files:', error)
+        setCaseFiles([]) // Set empty array on error
       } finally {
         setLoading(false)
       }
@@ -92,7 +108,7 @@ export default function CaseFilesPage() {
     if (isAuthenticated) {
       fetchCaseFiles()
     }
-  }, [isAuthenticated, token])
+  }, [isAuthenticated, token, showArchived])
 
   if (!isAuthenticated) {
     return <LoginForm />
@@ -217,14 +233,10 @@ Owner: ${caseFile.owner?.fullName || caseFile.owner?.firstName + ' ' + caseFile.
   const handleArchiveCaseFile = async (caseFile: any) => {
     if (!token) return
     
-    const isArchived = caseFile.status === 'archived'
-    const action = isArchived ? 'unarchive' : 'archive'
-    const newStatus = isArchived ? 'open' : 'archived'
-    
-    const confirmed = confirm(`Are you sure you want to ${action} case file "${caseFile.title}"?`)
+    const isArchiving = caseFile.status !== 'archived'
+    const action = isArchiving ? 'archive' : 'unarchive'
+    const confirmed = confirm(`Are you sure you want to ${action} "${caseFile.title}"?`)
     if (!confirmed) return
-    
-    console.log(`📦 ${action}ing case file:`, caseFile._id, 'Current status:', caseFile.status, 'New status:', newStatus)
     
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5004/api'}/case-files/${caseFile._id}`, {
@@ -234,25 +246,20 @@ Owner: ${caseFile.owner?.fullName || caseFile.owner?.firstName + ' ' + caseFile.
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          status: newStatus
+          status: isArchiving ? 'archived' : 'closed'
         })
       })
       
-      console.log('📥 Archive response status:', response.status)
-      
       if (response.ok) {
-        const data = await response.json()
-        console.log('📥 Archive response data:', data)
-        const updatedCaseFile = data.data?.caseFile || data.data
-        setCaseFiles(prev => prev.map((cf: any) => cf._id === caseFile._id ? updatedCaseFile : cf))
+        // Remove case file from current view since it's now archived/unarchived
+        setCaseFiles(prev => prev.filter((cf: any) => cf._id !== caseFile._id))
         alert(`Case file ${action}d successfully`)
       } else {
         const data = await response.json()
-        console.error(`❌ ${action} failed:`, data)
         alert(`Failed to ${action} case file: ${data.message}`)
       }
     } catch (error) {
-      console.error(`❌ ${action} error:`, error)
+      console.error(`Failed to ${action} case file:`, error)
       alert(`Failed to ${action} case file`)
     }
   }
@@ -265,93 +272,117 @@ Owner: ${caseFile.owner?.fullName || caseFile.owner?.firstName + ' ' + caseFile.
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Case Files</h1>
-              <p className="text-muted-foreground">Manage case files and associated documents</p>
+              <h1 className="text-2xl font-bold text-foreground">
+                {showArchived ? 'Archived Case Files' : 'Case Files'}
+              </h1>
+              <p className="text-muted-foreground">
+                {showArchived ? 'View and manage archived case files' : 'Manage case files and associated documents'}
+              </p>
             </div>
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Case File
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[525px]">
-                <DialogHeader>
-                  <DialogTitle>Create New Case File</DialogTitle>
-                  <DialogDescription>
-                    Open a new case file to organize related documents and workflows.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="cf-title">Case Title</Label>
-                    <Input 
-                      id="cf-title" 
-                      placeholder="Enter case title"
-                      value={createForm.title}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, title: e.target.value }))}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="cf-category">Category</Label>
-                    <Select value={createForm.category} onValueChange={(value) => setCreateForm(prev => ({ ...prev, category: value }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.slice(1).map((category) => (
-                          <SelectItem key={category} value={category.toLowerCase()}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="cf-assignee">Assign To (Optional)</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select assignee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="maria">Maria Rodriguez</SelectItem>
-                        <SelectItem value="carlos">Carlos Mendoza</SelectItem>
-                        <SelectItem value="ana">Ana Garcia</SelectItem>
-                        <SelectItem value="pedro">Pedro Martinez</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="cf-description">Description</Label>
-                    <Textarea 
-                      id="cf-description" 
-                      placeholder="Describe the case details"
-                      value={createForm.description}
-                      onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="cf-documents">Initial Documents (Optional)</Label>
-                    <Input id="cf-documents" type="file" multiple />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => {
-                    setIsCreateDialogOpen(false)
-                    setCreateForm({ title: '', category: '', description: '' })
-                  }}>
-                    Cancel
-                  </Button>
-                  <Button 
-                    onClick={() => handleCreateCaseFile(createForm)}
-                    disabled={!createForm.title || !createForm.category}
-                  >
-                    <FolderOpen className="w-4 h-4 mr-2" />
-                    Create Case
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowArchived(!showArchived)}
+              >
+                {showArchived ? (
+                  <>
+                    <ArchiveRestore className="w-4 h-4 mr-2" />
+                    View Active
+                  </>
+                ) : (
+                  <>
+                    <Archive className="w-4 h-4 mr-2" />
+                    View Archived
+                  </>
+                )}
+              </Button>
+              {!showArchived && (
+                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Case File
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[525px]">
+                    <DialogHeader>
+                      <DialogTitle>Create New Case File</DialogTitle>
+                      <DialogDescription>
+                        Open a new case file to organize related documents and workflows.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="cf-title">Case Title</Label>
+                        <Input 
+                          id="cf-title" 
+                          placeholder="Enter case title"
+                          value={createForm.title}
+                          onChange={(e) => setCreateForm(prev => ({ ...prev, title: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="cf-category">Category</Label>
+                        <Select value={createForm.category} onValueChange={(value) => setCreateForm(prev => ({ ...prev, category: value }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.slice(1).map((category) => (
+                              <SelectItem key={category} value={category.toLowerCase()}>
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="cf-assignee">Assign To (Optional)</Label>
+                        <Select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select assignee" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="maria">Maria Rodriguez</SelectItem>
+                            <SelectItem value="carlos">Carlos Mendoza</SelectItem>
+                            <SelectItem value="ana">Ana Garcia</SelectItem>
+                            <SelectItem value="pedro">Pedro Martinez</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="cf-description">Description</Label>
+                        <Textarea 
+                          id="cf-description" 
+                          placeholder="Describe the case details"
+                          value={createForm.description}
+                          onChange={(e) => setCreateForm(prev => ({ ...prev, description: e.target.value }))}
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="cf-documents">Initial Documents (Optional)</Label>
+                        <Input id="cf-documents" type="file" multiple />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => {
+                        setIsCreateDialogOpen(false)
+                        setCreateForm({ title: '', category: '', description: '' })
+                      }}>
+                        Cancel
+                      </Button>
+                      <Button 
+                        onClick={() => handleCreateCaseFile(createForm)}
+                        disabled={!createForm.title || !createForm.category}
+                      >
+                        <FolderOpen className="w-4 h-4 mr-2" />
+                        Create Case
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
           </div>
 
           {/* Filters */}
@@ -489,5 +520,3 @@ Owner: ${caseFile.owner?.fullName || caseFile.owner?.firstName + ' ' + caseFile.
     </div>
   )
 }
-
-

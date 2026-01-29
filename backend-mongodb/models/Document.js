@@ -13,12 +13,12 @@ const documentSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['contract', 'report', 'memo', 'policy', 'form', 'other']
+    enum: ['Financial', 'Report', 'Assessment', 'Survey', 'HR', 'Legal', 'Policy', 'Planning', 'contract', 'memo', 'form', 'other']
   },
   status: {
     type: String,
-    enum: ['draft', 'review', 'approved', 'archived'],
-    default: 'draft'
+    enum: ['draft', 'pending', 'in-progress', 'approved', 'rejected', 'archived'],
+    default: 'pending'
   },
   owner: {
     type: mongoose.Schema.Types.ObjectId,

@@ -17,8 +17,16 @@ router.get('/', authenticate, async (req, res) => {
     if (req.user.role === 'user') {
       query.owner = req.user._id;
     }
+    // Managers and admins can see all documents, but for pending status they see all
+    // For other statuses, they see all documents
     
-    if (status) query.status = status;
+    // Handle status filtering including exclusion
+    if (status) {
+      query.status = status;
+    } else if (req.query['status[ne]']) {
+      query.status = { $ne: req.query['status[ne]'] };
+    }
+    
     if (type) query.type = type;
     if (search) {
       query.$or = [
@@ -28,7 +36,7 @@ router.get('/', authenticate, async (req, res) => {
     }
 
     const documents = await Document.find(query)
-      .populate('owner', 'firstName lastName fullName email')
+      .populate('owner', 'firstName lastName fullName')
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit);

@@ -27,7 +27,7 @@ router.post('/register', async (req, res) => {
       lastName,
       fullName: `${firstName} ${lastName}`,
       password,
-      role: role || 'user',
+      role: 'user', // Force user role for registration - only admins can assign other roles
       department,
       position
     });

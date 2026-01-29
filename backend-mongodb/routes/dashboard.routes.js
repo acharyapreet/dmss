@@ -5,49 +5,56 @@ const Workflow = require('../models/Workflow');
 const CaseFile = require('../models/CaseFile');
 const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
+// const cache = require('../utils/cache'); // Temporarily disabled
 
 const router = express.Router();
 
 // Get dashboard statistics
 router.get('/stats', authenticate, async (req, res) => {
   try {
-    let stats = {};
-
-    if (req.user.role === 'admin') {
-      // Admin sees all statistics
-      stats = {
-        totalUsers: await User.countDocuments({ isActive: true }),
-        totalDocuments: await Document.countDocuments(),
-        totalWorkflows: await Workflow.countDocuments(),
-        totalCaseFiles: await CaseFile.countDocuments(),
-        pendingWorkflows: await Workflow.countDocuments({ status: 'pending' }),
-        activeWorkflows: await Workflow.countDocuments({ status: 'in-progress' }),
-        openCaseFiles: await CaseFile.countDocuments({ status: 'open' }),
-        documentsThisMonth: await Document.countDocuments({
-          createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
-        })
-      };
-    } else if (req.user.role === 'manager') {
-      // Manager sees department statistics
-      stats = {
-        totalDocuments: await Document.countDocuments(),
-        totalWorkflows: await Workflow.countDocuments(),
-        totalCaseFiles: await CaseFile.countDocuments(),
-        pendingWorkflows: await Workflow.countDocuments({ status: 'pending' }),
-        activeWorkflows: await Workflow.countDocuments({ status: 'in-progress' }),
-        openCaseFiles: await CaseFile.countDocuments({ status: 'open' }),
-        myDocuments: await Document.countDocuments({ owner: req.user._id }),
-        myWorkflows: await Workflow.countDocuments({ createdBy: req.user._id })
-      };
-    } else {
-      // User sees only their own statistics
-      stats = {
-        myDocuments: await Document.countDocuments({ owner: req.user._id }),
-        myWorkflows: await Workflow.countDocuments({ createdBy: req.user._id }),
-        myCaseFiles: await CaseFile.countDocuments({ owner: req.user._id }),
-        pendingWorkflows: await Workflow.countDocuments({ 
-          createdBy: req.user._id, 
-          status: 'pending' 
+    // const cacheKey = `stats_${req.user.role}_${req.user._id}`;
+    
+    // Try to get from cache first
+    // let stats = cache.get(cacheKey);
+    let stats = null; // Temporarily disable cache
+    
+    if (!stats) {
+      // Calculate stats if not in cache
+      if (req.user.role === 'admin') {
+        // Admin sees all statistics
+        stats = {
+          totalUsers: await User.countDocuments({ isActive: true }),
+          totalDocuments: await Document.countDocuments(),
+          totalWorkflows: await Workflow.countDocuments(),
+          totalCaseFiles: await CaseFile.countDocuments(),
+          pendingWorkflows: await Workflow.countDocuments({ status: 'pending' }),
+          activeWorkflows: await Workflow.countDocuments({ status: 'in-progress' }),
+          openCaseFiles: await CaseFile.countDocuments({ status: 'open' }),
+          documentsThisMonth: await Document.countDocuments({
+            createdAt: { $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
+          })
+        };
+      } else if (req.user.role === 'manager') {
+        // Manager sees department statistics
+        stats = {
+          totalDocuments: await Document.countDocuments(),
+          totalWorkflows: await Workflow.countDocuments(),
+          totalCaseFiles: await CaseFile.countDocuments(),
+          pendingWorkflows: await Workflow.countDocuments({ status: 'pending' }),
+          activeWorkflows: await Workflow.countDocuments({ status: 'in-progress' }),
+          openCaseFiles: await CaseFile.countDocuments({ status: 'open' }),
+          myDocuments: await Document.countDocuments({ owner: req.user._id }),
+          myWorkflows: await Workflow.countDocuments({ createdBy: req.user._id })
+        };
+      } else {
+        // User sees only their own statistics
+        stats = {
+          myDocuments: await Document.countDocuments({ owner: req.user._id }),
+          myWorkflows: await Workflow.countDocuments({ createdBy: req.user._id }),
+          myCaseFiles: await CaseFile.countDocuments({ owner: req.user._id }),
+          pendingWorkflows: await Workflow.countDocuments({ 
+            createdBy: req.user._id, 
+            status: 'pending' 
         }),
         activeWorkflows: await Workflow.countDocuments({ 
           createdBy: req.user._id, 
@@ -59,6 +66,10 @@ router.get('/stats', authenticate, async (req, res) => {
         })
       };
     }
+    
+    // Cache the stats for 5 minutes
+    // cache.set(cacheKey, stats); // Temporarily disabled
+  }
 
     res.json({
       success: true,
