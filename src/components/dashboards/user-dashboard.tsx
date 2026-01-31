@@ -538,8 +538,8 @@ export function UserDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg">My Workflows</CardTitle>
-              <CardDescription>Track your submitted workflows</CardDescription>
+              <CardTitle className="text-lg">My Latest Workflows</CardTitle>
+              <CardDescription>Your most recent unfinished workflows</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
               console.log('User Dashboard: Navigating to /workflows')
@@ -551,7 +551,16 @@ export function UserDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {workflows.length > 0 ? workflows.map((workflow: any) => (
+              {(() => {
+                // Filter unfinished workflows (pending, in-progress) and sort by creation date (latest first)
+                const unfinishedWorkflows = workflows
+                  .filter(w => w.status === 'pending' || w.status === 'in-progress')
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .slice(0, 4);
+                
+                console.log('📊 User Dashboard: Showing unfinished workflows:', unfinishedWorkflows.length);
+                
+                return unfinishedWorkflows.length > 0 ? unfinishedWorkflows.map((workflow: any) => (
                 <div
                   key={workflow._id}
                   className="p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
@@ -562,23 +571,24 @@ export function UserDashboard() {
                   </div>
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-muted-foreground">
-                      {workflow.status === 'completed' ? 'Completed' : 'In Progress'}
+                      Created: {new Date(workflow.createdAt).toLocaleDateString()}
                     </p>
                     <span className="text-xs text-muted-foreground">
-                      {workflow.status === 'completed' ? '100%' : '50%'}
+                      {workflow.progress || 0}%
                     </span>
                   </div>
-                  <Progress value={workflow.status === 'completed' ? 100 : 50} className="h-2" />
+                  <Progress value={workflow.progress || 50} className="h-2" />
                 </div>
               )) : (
                 <div className="text-center py-8">
                   <GitBranch className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground">No workflows yet</p>
+                  <p className="text-muted-foreground">No unfinished workflows</p>
                   <Button variant="outline" size="sm" className="mt-2" onClick={() => setIsCreateWorkflowDialogOpen(true)}>
                     Start your first workflow
                   </Button>
                 </div>
-              )}
+              );
+            })()}
             </div>
           </CardContent>
         </Card>

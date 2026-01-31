@@ -578,8 +578,8 @@ export function ManagerDashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg">Workflow Progress</CardTitle>
-              <CardDescription>Active workflows overview</CardDescription>
+              <CardTitle className="text-lg">Latest Unfinished Workflows</CardTitle>
+              <CardDescription>Recent workflows requiring attention</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
               console.log('Manager Dashboard: Navigating to /workflows')
@@ -591,7 +591,16 @@ export function ManagerDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {workflows.length > 0 ? workflows.slice(0, 4).map((workflow: any) => (
+              {(() => {
+                // Filter unfinished workflows (pending, in-progress) and sort by creation date (latest first)
+                const unfinishedWorkflows = workflows
+                  .filter(w => w.status === 'pending' || w.status === 'in-progress')
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .slice(0, 4);
+                
+                console.log('📊 Manager Dashboard: Showing unfinished workflows:', unfinishedWorkflows.length);
+                
+                return unfinishedWorkflows.length > 0 ? unfinishedWorkflows.map((workflow: any) => (
                 <div
                   key={workflow._id || workflow.id}
                   className="p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
@@ -633,9 +642,10 @@ export function ManagerDashboard() {
                 </div>
               )) : (
                 <div className="text-center py-8">
-                  <p className="text-muted-foreground">No active workflows</p>
+                  <p className="text-muted-foreground">No unfinished workflows</p>
                 </div>
-              )}
+              );
+            })()}
             </div>
           </CardContent>
         </Card>

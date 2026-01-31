@@ -45,6 +45,7 @@ import {
   Edit,
   UserX,
   UserCheck,
+  Eye,
 } from "lucide-react"
 
 export function AdminDashboard() {
@@ -84,6 +85,8 @@ export function AdminDashboard() {
     type: '',
     description: ''
   })
+  const [isViewDocumentOpen, setIsViewDocumentOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<any>(null)
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -115,7 +118,7 @@ export function AdminDashboard() {
           fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/documents?status=pending&limit=5`, {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
-          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/workflows?status=pending&limit=5`, {
+          fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/workflows?limit=10`, {
             headers: { 'Authorization': `Bearer ${token}` }
           })
         ])
@@ -448,6 +451,132 @@ export function AdminDashboard() {
     }
   }
 
+  // Handle document actions (approve/reject)
+  const handleDocumentAction = async (document: any, action: 'approve' | 'reject') => {
+    if (!token) {
+      console.error('❌ Admin Dashboard: No token available for document action')
+      alert('Authentication token not found. Please log in again.')
+      return
+    }
+    
+    console.log(`📄 Admin Dashboard: Starting ${action} for document:`, document.title, document._id)
+    
+    const confirmed = confirm(`Are you sure you want to ${action} document "${document.title}"?`)
+    if (!confirmed) {
+      console.log('📄 Admin Dashboard: Document action cancelled by user')
+      return
+    }
+    
+    try {
+      console.log(`📤 Admin Dashboard: Sending ${action} request for document:`, document._id)
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/documents/${document._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: action === 'approve' ? 'approved' : 'rejected'
+        })
+      })
+      
+      console.log(`📥 Admin Dashboard: Document ${action} response:`, response.status, response.ok)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log(`✅ Admin Dashboard: Document ${action}d successfully:`, data)
+        setDocuments(prev => prev.filter(d => d._id !== document._id))
+        alert(`Document "${document.title}" ${action}d successfully!`)
+      } else {
+        const data = await response.json()
+        console.error(`❌ Admin Dashboard: Document ${action} failed:`, data)
+        alert(`Failed to ${action} document: ${data.message}`)
+      }
+    } catch (error) {
+      console.error(`❌ Admin Dashboard: Document ${action} error:`, error)
+      alert(`Failed to ${action} document: ${error.message}`)
+    }
+  }
+
+  // Handle view document details
+  const handleViewDocument = (document: any) => {
+    console.log('📄 Admin Dashboard: Viewing document details:', document.title)
+    setSelectedDocument(document)
+    setIsViewDocumentOpen(true)
+  }
+
+  // Handle workflow actions
+  const handleWorkflowAction = async (workflow: any, action: 'advance' | 'back' | 'cancel') => {
+    if (!token) {
+      console.error('❌ Admin Dashboard: No token available for workflow action')
+      alert('Authentication token not found. Please log in again.')
+      return
+    }
+    
+    console.log(`⚡ Admin Dashboard: Starting ${action} for workflow:`, workflow.name, workflow._id)
+    
+    const confirmed = confirm(`Are you sure you want to ${action} workflow "${workflow.name}"?`)
+    if (!confirmed) {
+      console.log('⚡ Admin Dashboard: Workflow action cancelled by user')
+      return
+    }
+    
+    try {
+      console.log(`📤 Admin Dashboard: Sending ${action} request for workflow:`, workflow._id)
+      
+      let endpoint = ''
+      let body = {}
+      
+      switch (action) {
+        case 'advance':
+          endpoint = `/workflows/${workflow._id}/advance`
+          break
+        case 'back':
+          endpoint = `/workflows/${workflow._id}/backward`
+          break
+        case 'cancel':
+          endpoint = `/workflows/${workflow._id}`
+          body = { status: 'cancelled' }
+          break
+      }
+      
+      console.log(`📤 Admin Dashboard: Using endpoint: ${endpoint}`, body)
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}${endpoint}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      })
+      
+      console.log(`📥 Admin Dashboard: Workflow ${action} response:`, response.status, response.ok)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log(`✅ Admin Dashboard: Workflow ${action}d successfully:`, data)
+        const updatedWorkflow = data.data?.workflow || data.data
+        
+        if (action === 'cancel') {
+          setWorkflows(prev => prev.filter(w => w._id !== workflow._id))
+        } else {
+          setWorkflows(prev => prev.map(w => w._id === workflow._id ? updatedWorkflow : w))
+        }
+        
+        alert(`Workflow "${workflow.name}" ${action}d successfully!`)
+      } else {
+        const data = await response.json()
+        console.error(`❌ Admin Dashboard: Workflow ${action} failed:`, data)
+        alert(`Failed to ${action} workflow: ${data.message}`)
+      }
+    } catch (error) {
+      console.error(`❌ Admin Dashboard: Workflow ${action} error:`, error)
+      alert(`Failed to ${action} workflow: ${error.message}`)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -705,10 +834,28 @@ export function AdminDashboard() {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="text-primary"
-                    onClick={() => navigate(`/documents/${doc._id}`)}
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => handleViewDocument(doc)}
                   >
-                    Review
+                    View
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-success hover:text-success"
+                    onClick={() => handleDocumentAction(doc, 'approve')}
+                    disabled={doc.status !== 'pending'}
+                  >
+                    Approve
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => handleDocumentAction(doc, 'reject')}
+                    disabled={doc.status !== 'pending'}
+                  >
+                    Reject
                   </Button>
                 </div>
               </div>
@@ -725,8 +872,8 @@ export function AdminDashboard() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg">Workflow Management</CardTitle>
-            <CardDescription>Active workflows requiring attention</CardDescription>
+            <CardTitle className="text-lg">Latest Unfinished Workflows</CardTitle>
+            <CardDescription>Recent workflows requiring attention (pending & in-progress)</CardDescription>
           </div>
           <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
             console.log('Navigating to /workflows')
@@ -738,7 +885,16 @@ export function AdminDashboard() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {workflows.length > 0 ? workflows.slice(0, 4).map((workflow: any) => (
+            {(() => {
+              // Filter unfinished workflows (pending, in-progress) and sort by creation date (latest first)
+              const unfinishedWorkflows = workflows
+                .filter(w => w.status === 'pending' || w.status === 'in-progress')
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .slice(0, 4);
+              
+              console.log('📊 Admin Dashboard: Showing unfinished workflows:', unfinishedWorkflows.length);
+              
+              return unfinishedWorkflows.length > 0 ? unfinishedWorkflows.map((workflow: any) => (
               <div
                 key={workflow._id || workflow.id}
                 className="p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
@@ -749,7 +905,17 @@ export function AdminDashboard() {
                 </div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-muted-foreground">
-                    Created: {new Date(workflow.createdAt).toLocaleDateString()}
+                    Created: {new Date(workflow.createdAt).toLocaleDateString()} 
+                    <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      {(() => {
+                        const days = Math.floor((new Date().getTime() - new Date(workflow.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+                        if (days === 0) return 'Today';
+                        if (days === 1) return '1 day ago';
+                        if (days < 7) return `${days} days ago`;
+                        if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
+                        return `${Math.floor(days / 30)} months ago`;
+                      })()}
+                    </span>
                   </p>
                   <span className="text-xs text-muted-foreground">
                     {workflow.progress || 0}%
@@ -757,20 +923,40 @@ export function AdminDashboard() {
                 </div>
                 <div className="flex items-center justify-between">
                   <Progress value={workflow.progress || 0} className="h-2 flex-1 mr-2" />
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => navigate(`/workflows/${workflow._id}`)}
-                  >
-                    Manage
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleWorkflowAction(workflow, 'advance')}
+                      disabled={workflow.status === 'completed' || workflow.progress >= 100}
+                    >
+                      Advance
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleWorkflowAction(workflow, 'back')}
+                      disabled={workflow.status === 'completed' || (workflow.progress || 0) <= 0}
+                    >
+                      Back
+                    </Button>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => handleWorkflowAction(workflow, 'cancel')}
+                      disabled={workflow.status === 'completed' || workflow.status === 'cancelled'}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
               </div>
-            )) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No active workflows</p>
-              </div>
-            )}
+              )) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No unfinished workflows</p>
+                </div>
+              );
+            })()}
           </div>
         </CardContent>
       </Card>
@@ -1169,6 +1355,80 @@ export function AdminDashboard() {
             >
               Create Document
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Document Dialog */}
+      <Dialog open={isViewDocumentOpen} onOpenChange={setIsViewDocumentOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Document Details</DialogTitle>
+            <DialogDescription>
+              Review document information before making approval decision.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDocument && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Title</label>
+                <p className="text-sm text-muted-foreground">{selectedDocument.title}</p>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Type</label>
+                <p className="text-sm text-muted-foreground capitalize">{selectedDocument.type}</p>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Status</label>
+                <StatusBadge status={selectedDocument.status as "pending" | "approved" | "rejected"} />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Description</label>
+                <p className="text-sm text-muted-foreground">{selectedDocument.description || 'No description provided'}</p>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Created By</label>
+                <p className="text-sm text-muted-foreground">
+                  {selectedDocument.owner?.fullName || selectedDocument.owner?.firstName + ' ' + selectedDocument.owner?.lastName || 'Unknown'}
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Created Date</label>
+                <p className="text-sm text-muted-foreground">{new Date(selectedDocument.createdAt).toLocaleString()}</p>
+              </div>
+              {selectedDocument.updatedAt && selectedDocument.updatedAt !== selectedDocument.createdAt && (
+                <div className="grid gap-2">
+                  <label className="text-sm font-medium">Last Updated</label>
+                  <p className="text-sm text-muted-foreground">{new Date(selectedDocument.updatedAt).toLocaleString()}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewDocumentOpen(false)}>
+              Close
+            </Button>
+            {selectedDocument && selectedDocument.status === 'pending' && (
+              <>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => {
+                    setIsViewDocumentOpen(false)
+                    handleDocumentAction(selectedDocument, 'reject')
+                  }}
+                >
+                  Reject
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setIsViewDocumentOpen(false)
+                    handleDocumentAction(selectedDocument, 'approve')
+                  }}
+                >
+                  Approve
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
