@@ -29,6 +29,7 @@ const authenticate = async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
 
     if (!token) {
+      console.log('No token provided in request');
       return res.status(401).json({
         success: false,
         message: 'No token provided'
@@ -37,6 +38,7 @@ const authenticate = async (req, res, next) => {
 
     const decoded = verifyToken(token);
     if (!decoded) {
+      console.log('Invalid or expired token');
       return res.status(401).json({
         success: false,
         message: 'Invalid or expired token'
@@ -46,15 +48,18 @@ const authenticate = async (req, res, next) => {
     // Get user from database
     const user = await User.findById(decoded.userId);
     if (!user || !user.isActive) {
+      console.log('User not found or inactive:', decoded.userId);
       return res.status(401).json({
         success: false,
         message: 'User not found or inactive'
       });
     }
 
+    console.log('Authentication successful for user:', user.email, 'Role:', user.role);
     req.user = user;
     next();
   } catch (error) {
+    console.error('Authentication error:', error);
     return res.status(401).json({
       success: false,
       message: 'Authentication failed'

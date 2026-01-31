@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile Update Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, button { padding: 8px; margin: 5px 0; }
+        input[type="text"], input[type="email"], input[type="password"] { width: 100%; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        .success { border-color: #28a745; background: #d4edda; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Profile Update Test</h1>
+        
+        <div class="form-group">
+            <h2>1. Login First</h2>
+            <label>Email:</label>
+            <input type="email" id="loginEmail" value="admin@villarrica.gov">
+            <label>Password:</label>
+            <input type="password" id="loginPassword" value="admin123">
+            <button onclick="login()">Login</button>
+        </div>
+
+        <div class="form-group">
+            <h2>2. Update Profile</h2>
+            <label>First Name:</label>
+            <input type="text" id="firstName" value="Updated">
+            <label>Last Name:</label>
+            <input type="text" id="lastName" value="Admin">
+            <label>Full Name:</label>
+            <input type="text" id="fullName" value="Updated Admin">
+            <label>Email:</label>
+            <input type="email" id="email" value="admin@villarrica.gov">
+            <button onclick="updateProfile()">Update Profile</button>
+        </div>
+
+        <div class="form-group">
+            <h2>3. Change Password</h2>
+            <label>Current Password:</label>
+            <input type="password" id="currentPassword" value="admin123">
+            <label>New Password:</label>
+            <input type="password" id="newPassword" value="admin123">
+            <button onclick="changePassword()">Change Password</button>
+        </div>
+
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5004/api';
+        let authToken = '';
+
+        function showResult(message, isError = false) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = isError ? 'result error' : 'result success';
+            resultDiv.style.display = 'block';
+            console.log(message);
+        }
+
+        async function login() {
+            try {
+                const email = document.getElementById('loginEmail').value;
+                const password = document.getElementById('loginPassword').value;
+
+                console.log('Attempting login with:', { email, password });
+
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                console.log('Login response:', data);
+
+                if (response.ok) {
+                    authToken = data.data.token;
+                    showResult(`Login successful! Token: ${authToken.substring(0, 20)}...`);
+                } else {
+                    showResult(`Login failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showResult(`Login error: ${error.message}`, true);
+            }
+        }
+
+        async function updateProfile() {
+            if (!authToken) {
+                showResult('Please login first!', true);
+                return;
+            }
+
+            try {
+                const profileData = {
+                    firstName: document.getElementById('firstName').value,
+                    lastName: document.getElementById('lastName').value,
+                    fullName: document.getElementById('fullName').value,
+                    email: document.getElementById('email').value
+                };
+
+                console.log('Updating profile with:', profileData);
+                console.log('Using token:', authToken.substring(0, 20) + '...');
+
+                const response = await fetch(`${API_URL}/auth/profile`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(profileData)
+                });
+
+                const data = await response.json();
+                console.log('Profile update response:', data);
+
+                if (response.ok) {
+                    showResult(`Profile updated successfully! Updated user: ${JSON.stringify(data.data.user, null, 2)}`);
+                } else {
+                    showResult(`Profile update failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                console.error('Profile update error:', error);
+                showResult(`Profile update error: ${error.message}`, true);
+            }
+        }
+
+        async function changePassword() {
+            if (!authToken) {
+                showResult('Please login first!', true);
+                return;
+            }
+
+            try {
+                const passwordData = {
+                    currentPassword: document.getElementById('currentPassword').value,
+                    newPassword: document.getElementById('newPassword').value
+                };
+
+                console.log('Changing password...');
+
+                const response = await fetch(`${API_URL}/auth/change-password`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(passwordData)
+                });
+
+                const data = await response.json();
+                console.log('Password change response:', data);
+
+                if (response.ok) {
+                    showResult('Password changed successfully!');
+                } else {
+                    showResult(`Password change failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                console.error('Password change error:', error);
+                showResult(`Password change error: ${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>

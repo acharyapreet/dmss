@@ -103,7 +103,19 @@ router.get('/:id', authenticate, async (req, res) => {
 // Create new document
 router.post('/', authenticate, async (req, res) => {
   try {
+    console.log('Document creation request received');
+    console.log('User:', req.user ? `${req.user.email} (${req.user.role})` : 'No user');
+    console.log('Request body:', req.body);
+    
     const { title, description, type } = req.body;
+
+    if (!title || !type) {
+      console.log('Missing required fields:', { title: !!title, type: !!type });
+      return res.status(400).json({
+        success: false,
+        message: 'Title and type are required'
+      });
+    }
 
     const document = new Document({
       title,
@@ -112,6 +124,7 @@ router.post('/', authenticate, async (req, res) => {
       owner: req.user._id
     });
 
+    console.log('Creating document:', document);
     await document.save();
     await document.populate('owner', 'firstName lastName fullName email');
 
@@ -126,6 +139,7 @@ router.post('/', authenticate, async (req, res) => {
       userAgent: req.get('User-Agent')
     });
 
+    console.log('Document created successfully:', document._id);
     res.status(201).json({
       success: true,
       message: 'Document created successfully',

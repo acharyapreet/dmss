@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard API Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-section { margin-bottom: 30px; padding: 20px; border: 1px solid #ccc; border-radius: 5px; }
+        .result { margin-top: 10px; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; white-space: pre-wrap; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        .success { border-color: #28a745; background: #d4edda; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        input { padding: 8px; margin: 5px; width: 200px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard API Test</h1>
+        
+        <div class="test-section">
+            <h2>1. Login</h2>
+            <input type="email" id="email" placeholder="Email" value="admin@villarrica.gov">
+            <input type="password" id="password" placeholder="Password" value="admin123">
+            <button onclick="login()">Login</button>
+            <div id="loginResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. Test Dashboard Stats</h2>
+            <button onclick="testStats()">Get Stats</button>
+            <div id="statsResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. Test Users (Admin Only)</h2>
+            <button onclick="testUsers()">Get Users</button>
+            <div id="usersResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. Test Activities</h2>
+            <button onclick="testActivities()">Get Activities</button>
+            <div id="activitiesResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>5. Test Documents</h2>
+            <button onclick="testDocuments()">Get Documents</button>
+            <div id="documentsResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>6. Test Case Files</h2>
+            <button onclick="testCaseFiles()">Get Case Files</button>
+            <div id="caseFilesResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>7. Test Workflows</h2>
+            <button onclick="testWorkflows()">Get Workflows</button>
+            <div id="workflowsResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5004/api';
+        let authToken = '';
+
+        function showResult(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = isError ? 'result error' : 'result success';
+            element.style.display = 'block';
+            console.log(message);
+        }
+
+        async function login() {
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    authToken = data.data.token;
+                    showResult('loginResult', `Login successful!\nUser: ${data.data.user.fullName}\nRole: ${data.data.user.role}\nToken: ${authToken.substring(0, 20)}...`);
+                } else {
+                    showResult('loginResult', `Login failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('loginResult', `Login error: ${error.message}`, true);
+            }
+        }
+
+        async function testStats() {
+            if (!authToken) {
+                showResult('statsResult', 'Please login first!', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/dashboard/stats`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult('statsResult', `Stats retrieved successfully:\n${JSON.stringify(data.data.stats, null, 2)}`);
+                } else {
+                    showResult('statsResult', `Stats failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('statsResult', `Stats error: ${error.message}`, true);
+            }
+        }
+
+        async function testUsers() {
+            if (!authToken) {
+                showResult('usersResult', 'Please login first!', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/dashboard/users?limit=5`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const users = data.data.users.map(u => `${u.fullName} (${u.email}) - ${u.role}`).join('\n');
+                    showResult('usersResult', `Users retrieved successfully:\n${users}`);
+                } else {
+                    showResult('usersResult', `Users failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('usersResult', `Users error: ${error.message}`, true);
+            }
+        }
+
+        async function testActivities() {
+            if (!authToken) {
+                showResult('activitiesResult', 'Please login first!', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/dashboard/activities?limit=5`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const activities = data.data.activities.map(a => `${a.action} - ${a.details} (${new Date(a.createdAt).toLocaleString()})`).join('\n');
+                    showResult('activitiesResult', `Activities retrieved successfully:\n${activities}`);
+                } else {
+                    showResult('activitiesResult', `Activities failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('activitiesResult', `Activities error: ${error.message}`, true);
+            }
+        }
+
+        async function testDocuments() {
+            if (!authToken) {
+                showResult('documentsResult', 'Please login first!', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/documents?status=pending&limit=5`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const docs = data.data.documents.map(d => `${d.title} - ${d.status} (${d.type})`).join('\n');
+                    showResult('documentsResult', `Documents retrieved successfully:\n${docs || 'No pending documents'}`);
+                } else {
+                    showResult('documentsResult', `Documents failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('documentsResult', `Documents error: ${error.message}`, true);
+            }
+        }
+
+        async function testCaseFiles() {
+            if (!authToken) {
+                showResult('caseFilesResult', 'Please login first!', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/case-files?status=open&limit=5`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const cases = data.data.caseFiles.map(c => `${c.caseNumber} - ${c.title} (${c.status})`).join('\n');
+                    showResult('caseFilesResult', `Case Files retrieved successfully:\n${cases || 'No open case files'}`);
+                } else {
+                    showResult('caseFilesResult', `Case Files failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('caseFilesResult', `Case Files error: ${error.message}`, true);
+            }
+        }
+
+        async function testWorkflows() {
+            if (!authToken) {
+                showResult('workflowsResult', 'Please login first!', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/workflows?status=pending&limit=5`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const workflows = data.data.workflows.map(w => `${w.name} - ${w.status} (${w.progress || 0}%)`).join('\n');
+                    showResult('workflowsResult', `Workflows retrieved successfully:\n${workflows || 'No pending workflows'}`);
+                } else {
+                    showResult('workflowsResult', `Workflows failed: ${data.message}`, true);
+                }
+            } catch (error) {
+                showResult('workflowsResult', `Workflows error: ${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>
