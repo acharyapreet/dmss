@@ -91,17 +91,11 @@ export function AdminDashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!token) {
-        console.log('❌ No token available for dashboard data fetch')
         return
       }
       
-      console.log('🔍 Starting dashboard data fetch...')
-      console.log('Token available:', !!token)
-      console.log('API URL:', import.meta.env.VITE_API_URL || 'http://localhost:5004/api')
-      
       try {
         // Make all API calls in parallel for better performance
-        console.log('📤 Making parallel API calls...')
         const [statsResponse, usersResponse, activitiesResponse, caseFilesResponse, documentsResponse, workflowsResponse] = await Promise.all([
           fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/dashboard/stats`, {
             headers: { 'Authorization': `Bearer ${token}` }
@@ -123,70 +117,49 @@ export function AdminDashboard() {
           })
         ])
         
-        console.log('📥 API responses received:')
-        console.log('Stats response:', statsResponse.status, statsResponse.ok)
-        console.log('Users response:', usersResponse.status, usersResponse.ok)
-        console.log('Activities response:', activitiesResponse.status, activitiesResponse.ok)
-        console.log('Case files response:', caseFilesResponse.status, caseFilesResponse.ok)
-        console.log('Documents response:', documentsResponse.status, documentsResponse.ok)
-        console.log('Workflows response:', workflowsResponse.status, workflowsResponse.ok)
-        
         // Process responses
         if (statsResponse.ok) {
           const statsData = await statsResponse.json()
-          console.log('✅ Stats data:', statsData.data?.stats)
           setStats(statsData.data?.stats || {})
         } else {
-          console.error('❌ Failed to fetch stats:', statsResponse.status)
           setStats({})
         }
 
         if (usersResponse.ok) {
           const usersData = await usersResponse.json()
-          console.log('✅ Users data:', usersData.data?.users?.length, 'users')
           setUsers(Array.isArray(usersData.data?.users) ? usersData.data.users : [])
         } else {
-          console.error('❌ Failed to fetch users:', usersResponse.status)
           setUsers([])
         }
 
         if (activitiesResponse.ok) {
           const activitiesData = await activitiesResponse.json()
-          console.log('✅ Activities data:', activitiesData.data?.activities?.length, 'activities')
           setActivities(Array.isArray(activitiesData.data?.activities) ? activitiesData.data.activities : [])
         } else {
-          console.error('❌ Failed to fetch activities:', activitiesResponse.status)
           setActivities([])
         }
 
         if (caseFilesResponse.ok) {
           const caseFilesData = await caseFilesResponse.json()
-          console.log('✅ Case files data:', caseFilesData.data?.caseFiles?.length, 'case files')
           setCaseFiles(Array.isArray(caseFilesData.data?.caseFiles) ? caseFilesData.data.caseFiles : [])
         } else {
-          console.error('❌ Failed to fetch case files:', caseFilesResponse.status)
           setCaseFiles([])
         }
 
         if (documentsResponse.ok) {
           const documentsData = await documentsResponse.json()
-          console.log('✅ Documents data:', documentsData.data?.documents?.length, 'documents')
           setDocuments(Array.isArray(documentsData.data?.documents) ? documentsData.data.documents : [])
         } else {
-          console.error('❌ Failed to fetch documents:', documentsResponse.status)
           setDocuments([])
         }
 
         if (workflowsResponse.ok) {
           const workflowsData = await workflowsResponse.json()
-          console.log('✅ Workflows data:', workflowsData.data?.workflows?.length, 'workflows')
           setWorkflows(Array.isArray(workflowsData.data?.workflows) ? workflowsData.data.workflows : [])
         } else {
-          console.error('❌ Failed to fetch workflows:', workflowsResponse.status)
           setWorkflows([])
         }
       } catch (error) {
-        console.error('❌ Failed to fetch dashboard data:', error)
         // Set safe defaults on error
         setStats({})
         setUsers([])
@@ -195,7 +168,6 @@ export function AdminDashboard() {
         setDocuments([])
         setWorkflows([])
       } finally {
-        console.log('✅ Dashboard data fetch completed')
         setLoading(false)
       }
     }
@@ -207,13 +179,7 @@ export function AdminDashboard() {
   const handleAddUser = async () => {
     if (!token) return
     
-    console.log('👤 Starting add user...')
-    console.log('Token:', token ? 'Present' : 'Missing')
-    console.log('Add user form data:', addUserForm)
-    
     try {
-      console.log('📤 Sending add user request...')
-      
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/admin/users`, {
         method: 'POST',
         headers: {
@@ -223,11 +189,7 @@ export function AdminDashboard() {
         body: JSON.stringify(addUserForm)
       })
       
-      console.log('📥 Add user response status:', response.status)
-      console.log('📥 Add user response ok:', response.ok)
-      
       const data = await response.json()
-      console.log('📥 Add user response data:', data)
       
       if (response.ok) {
         setUsers(prev => [data.data.user, ...prev])
@@ -251,11 +213,9 @@ export function AdminDashboard() {
           setStats(statsData.data?.stats || {})
         }
       } else {
-        console.error('❌ Add user failed:', data)
         alert(`Failed to add user: ${data.message}`)
       }
     } catch (error) {
-      console.error('❌ Add user error:', error)
       alert('Failed to add user')
     }
   }
@@ -279,18 +239,11 @@ export function AdminDashboard() {
   const handleUpdateUser = async () => {
     if (!token || !selectedUser) return
     
-    console.log('🔧 Starting user update...')
-    console.log('Token:', token ? 'Present' : 'Missing')
-    console.log('Selected user:', selectedUser)
-    console.log('Update form data:', editUserForm)
-    
     try {
       const updatePayload = {
         ...editUserForm,
         fullName: `${editUserForm.firstName} ${editUserForm.lastName}`
       }
-      
-      console.log('📤 Sending update request:', updatePayload)
       
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/admin/users/${selectedUser._id}`, {
         method: 'PUT',
@@ -301,11 +254,7 @@ export function AdminDashboard() {
         body: JSON.stringify(updatePayload)
       })
       
-      console.log('📥 Response status:', response.status)
-      console.log('📥 Response ok:', response.ok)
-      
       const data = await response.json()
-      console.log('📥 Response data:', data)
       
       if (response.ok) {
         setUsers(prev => prev.map(u => u._id === selectedUser._id ? data.data.user : u))
@@ -313,11 +262,9 @@ export function AdminDashboard() {
         setSelectedUser(null)
         alert('User updated successfully!')
       } else {
-        console.error('❌ Update failed:', data)
         alert(`Failed to update user: ${data.message}`)
       }
     } catch (error) {
-      console.error('❌ Update error:', error)
       alert('Failed to update user')
     }
   }
@@ -333,14 +280,7 @@ export function AdminDashboard() {
       return
     }
     
-    console.log(`🔄 Starting ${action} user...`)
-    console.log('Token:', token ? 'Present' : 'Missing')
-    console.log('User:', user)
-    console.log('New status:', newStatus)
-    
     try {
-      console.log('📤 Sending status toggle request...')
-      
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/admin/users/${user._id}`, {
         method: 'PUT',
         headers: {
@@ -352,21 +292,15 @@ export function AdminDashboard() {
         })
       })
       
-      console.log('📥 Toggle status response status:', response.status)
-      console.log('📥 Toggle status response ok:', response.ok)
-      
       const data = await response.json()
-      console.log('📥 Toggle status response data:', data)
       
       if (response.ok) {
         setUsers(prev => prev.map(u => u._id === user._id ? data.data.user : u))
         alert(`User ${action}d successfully!`)
       } else {
-        console.error(`❌ ${action} failed:`, data)
         alert(`Failed to ${action} user: ${data.message}`)
       }
     } catch (error) {
-      console.error(`❌ ${action} error:`, error)
       alert(`Failed to ${action} user`)
     }
   }
@@ -381,10 +315,6 @@ export function AdminDashboard() {
     }
     
     try {
-      console.log('📄 Creating document:', createDocumentForm)
-      console.log('API URL:', import.meta.env.VITE_API_URL || 'http://localhost:5004/api')
-      console.log('Token:', token ? 'Present' : 'Missing')
-      
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/documents`, {
         method: 'POST',
         headers: {
@@ -394,22 +324,16 @@ export function AdminDashboard() {
         body: JSON.stringify(createDocumentForm)
       })
       
-      console.log('Response status:', response.status)
-      console.log('Response ok:', response.ok)
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('Document created successfully:', data)
         setCreateDocumentForm({ title: '', type: '', description: '' })
         setIsCreateDocumentOpen(false)
         alert('Document created successfully!')
       } else {
         const data = await response.json()
-        console.error('Failed to create document:', data)
         alert(`Failed to create document: ${data.message}`)
       }
     } catch (error) {
-      console.error('❌ Failed to create document:', error)
       alert('Failed to create document')
     }
   }
@@ -422,8 +346,6 @@ export function AdminDashboard() {
     if (!confirmed) return
     
     try {
-      console.log(`📁 ${action}ing case file:`, caseFile._id)
-      
       // Map actions to correct case file statuses
       const newStatus = action === 'approve' ? 'in-progress' : 'closed';
       
@@ -454,22 +376,16 @@ export function AdminDashboard() {
   // Handle document actions (approve/reject)
   const handleDocumentAction = async (document: any, action: 'approve' | 'reject') => {
     if (!token) {
-      console.error('❌ Admin Dashboard: No token available for document action')
       alert('Authentication token not found. Please log in again.')
       return
     }
     
-    console.log(`📄 Admin Dashboard: Starting ${action} for document:`, document.title, document._id)
-    
     const confirmed = confirm(`Are you sure you want to ${action} document "${document.title}"?`)
     if (!confirmed) {
-      console.log('📄 Admin Dashboard: Document action cancelled by user')
       return
     }
     
     try {
-      console.log(`📤 Admin Dashboard: Sending ${action} request for document:`, document._id)
-      
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/documents/${document._id}`, {
         method: 'PUT',
         headers: {
@@ -481,51 +397,40 @@ export function AdminDashboard() {
         })
       })
       
-      console.log(`📥 Admin Dashboard: Document ${action} response:`, response.status, response.ok)
-      
       if (response.ok) {
         const data = await response.json()
-        console.log(`✅ Admin Dashboard: Document ${action}d successfully:`, data)
         setDocuments(prev => prev.filter(d => d._id !== document._id))
         alert(`Document "${document.title}" ${action}d successfully!`)
       } else {
         const data = await response.json()
-        console.error(`❌ Admin Dashboard: Document ${action} failed:`, data)
         alert(`Failed to ${action} document: ${data.message}`)
       }
     } catch (error) {
-      console.error(`❌ Admin Dashboard: Document ${action} error:`, error)
       alert(`Failed to ${action} document: ${error.message}`)
     }
   }
 
   // Handle view document details
   const handleViewDocument = (document: any) => {
-    console.log('📄 Admin Dashboard: Viewing document details:', document.title)
     setSelectedDocument(document)
     setIsViewDocumentOpen(true)
   }
 
   // Handle workflow actions
-  const handleWorkflowAction = async (workflow: any, action: 'advance' | 'back' | 'cancel') => {
+  const handleWorkflowAction = async (workflow: any, action: 'advance' | 'back' | 'cancel' | 'delete') => {
     if (!token) {
-      console.error('❌ Admin Dashboard: No token available for workflow action')
       alert('Authentication token not found. Please log in again.')
       return
     }
     
-    console.log(`⚡ Admin Dashboard: Starting ${action} for workflow:`, workflow.name, workflow._id)
-    
     const confirmed = confirm(`Are you sure you want to ${action} workflow "${workflow.name}"?`)
     if (!confirmed) {
-      console.log('⚡ Admin Dashboard: Workflow action cancelled by user')
       return
     }
     
     try {
-      console.log(`📤 Admin Dashboard: Sending ${action} request for workflow:`, workflow._id)
-      
       let endpoint = ''
+      let method = 'PUT'
       let body = {}
       
       switch (action) {
@@ -539,27 +444,26 @@ export function AdminDashboard() {
           endpoint = `/workflows/${workflow._id}`
           body = { status: 'cancelled' }
           break
+        case 'delete':
+          endpoint = `/workflows/${workflow._id}`
+          method = 'DELETE'
+          break
       }
       
-      console.log(`📤 Admin Dashboard: Using endpoint: ${endpoint}`, body)
-      
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}${endpoint}`, {
-        method: 'PUT',
+        method: method,
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(body)
+        body: method === 'DELETE' ? undefined : JSON.stringify(body)
       })
-      
-      console.log(`📥 Admin Dashboard: Workflow ${action} response:`, response.status, response.ok)
       
       if (response.ok) {
         const data = await response.json()
-        console.log(`✅ Admin Dashboard: Workflow ${action}d successfully:`, data)
         const updatedWorkflow = data.data?.workflow || data.data
         
-        if (action === 'cancel') {
+        if (action === 'cancel' || action === 'delete') {
           setWorkflows(prev => prev.filter(w => w._id !== workflow._id))
         } else {
           setWorkflows(prev => prev.map(w => w._id === workflow._id ? updatedWorkflow : w))
@@ -568,11 +472,9 @@ export function AdminDashboard() {
         alert(`Workflow "${workflow.name}" ${action}d successfully!`)
       } else {
         const data = await response.json()
-        console.error(`❌ Admin Dashboard: Workflow ${action} failed:`, data)
         alert(`Failed to ${action} workflow: ${data.message}`)
       }
     } catch (error) {
-      console.error(`❌ Admin Dashboard: Workflow ${action} error:`, error)
       alert(`Failed to ${action} workflow: ${error.message}`)
     }
   }
@@ -671,7 +573,6 @@ export function AdminDashboard() {
                 </DialogTrigger>
               </Dialog>
               <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-                console.log('Navigating to /admin/users')
                 navigate('/admin/users')
               }}>
                 View All
@@ -757,7 +658,6 @@ export function AdminDashboard() {
               <CardDescription>Latest system activities</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-              console.log('Navigating to /audit')
               navigate('/audit')
             }}>
               View All
@@ -876,7 +776,6 @@ export function AdminDashboard() {
             <CardDescription>Recent workflows requiring attention (pending & in-progress)</CardDescription>
           </div>
           <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-            console.log('Navigating to /workflows')
             navigate('/workflows')
           }}>
             View All
@@ -891,8 +790,6 @@ export function AdminDashboard() {
                 .filter(w => w.status === 'pending' || w.status === 'in-progress')
                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                 .slice(0, 4);
-              
-              console.log('📊 Admin Dashboard: Showing unfinished workflows:', unfinishedWorkflows.length);
               
               return unfinishedWorkflows.length > 0 ? unfinishedWorkflows.map((workflow: any) => (
               <div
@@ -943,10 +840,9 @@ export function AdminDashboard() {
                     <Button 
                       variant="destructive" 
                       size="sm"
-                      onClick={() => handleWorkflowAction(workflow, 'cancel')}
-                      disabled={workflow.status === 'completed' || workflow.status === 'cancelled'}
+                      onClick={() => handleWorkflowAction(workflow, 'delete')}
                     >
-                      Cancel
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -1003,7 +899,6 @@ export function AdminDashboard() {
             <CardDescription>Case files requiring administrative attention</CardDescription>
           </div>
           <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-            console.log('Navigating to /case-files')
             navigate('/case-files')
           }}>
             View All Cases

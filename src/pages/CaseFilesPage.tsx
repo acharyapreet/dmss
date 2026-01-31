@@ -87,11 +87,9 @@ export default function CaseFilesPage() {
           const data = await response.json()
           setCaseFiles(data.data?.caseFiles || data.data || [])
         } else {
-          console.error('Failed to fetch case files:', response.status, response.statusText)
           setCaseFiles([]) // Set empty array on error
         }
       } catch (error) {
-        console.error('Failed to fetch case files:', error)
         setCaseFiles([]) // Set empty array on error
       } finally {
         setLoading(false)
@@ -127,7 +125,9 @@ export default function CaseFilesPage() {
     const matchesSearch = cf.caseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       cf.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (cf.owner?.fullName || cf.owner?.firstName + ' ' + cf.owner?.lastName || '').toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = categoryFilter === "All Categories" || cf.category === categoryFilter
+    const matchesCategory = categoryFilter === "All Categories" || 
+      cf.category === categoryFilter.toLowerCase() ||
+      cf.category === categoryFilter
     const matchesStatus = statusFilter === "All Status" || cf.status === statusFilter
     
     // If showing archived, only show archived case files
@@ -169,7 +169,6 @@ export default function CaseFilesPage() {
         alert(`Failed to create case file: ${data.message}`)
       }
     } catch (error) {
-      console.error('Case file creation error:', error)
       alert('Failed to create case file')
     }
   }
@@ -210,7 +209,6 @@ Owner: ${caseFile.owner?.fullName || caseFile.owner?.firstName + ' ' + caseFile.
         alert(`Failed to delete case file: ${data.message}`)
       }
     } catch (error) {
-      console.error('Delete error:', error)
       alert('Failed to delete case file')
     }
   }
@@ -244,7 +242,6 @@ Owner: ${caseFile.owner?.fullName || caseFile.owner?.firstName + ' ' + caseFile.
         alert(`Failed to ${action} case file: ${data.message}`)
       }
     } catch (error) {
-      console.error(`Failed to ${action} case file:`, error)
       alert(`Failed to ${action} case file`)
     }
   }

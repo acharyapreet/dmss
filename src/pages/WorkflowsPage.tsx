@@ -39,6 +39,7 @@ import {
   PlayCircle,
   Archive,
   ArchiveRestore,
+  Trash2,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -89,11 +90,9 @@ export default function WorkflowsPage() {
           const data = await response.json()
           setWorkflows(data.data?.workflows || data.data || [])
         } else {
-          console.error('Failed to fetch workflows:', response.status, response.statusText)
           setWorkflows([]) // Set empty array on error
         }
       } catch (error) {
-        console.error('Failed to fetch workflows:', error)
         setWorkflows([]) // Set empty array on error
       } finally {
         setLoading(false)
@@ -128,7 +127,12 @@ export default function WorkflowsPage() {
   const filteredWorkflows = workflows.filter((wf: any) => {
     const matchesSearch = wf.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (wf.createdBy?.fullName || wf.createdBy?.firstName + ' ' + wf.createdBy?.lastName || '').toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesTemplate = templateFilter === "All Templates" || wf.template === templateFilter
+    
+    // Template filtering - match by template field
+    const matchesTemplate = templateFilter === "All Templates" || 
+      wf.template === templateFilter ||
+      wf.template === 'general' // Fallback for existing workflows
+    
     const matchesStatus = statusFilter === "All Status" || wf.status === statusFilter
     
     // If showing archived, only show archived workflows
@@ -146,6 +150,7 @@ export default function WorkflowsPage() {
       const workflowData = {
         name: formData.name,
         description: formData.description,
+        template: formData.document || 'general'
       }
       
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/workflows`, {
@@ -169,7 +174,6 @@ export default function WorkflowsPage() {
         alert(`Failed to create workflow: ${data.message}`)
       }
     } catch (error) {
-      console.error('Workflow creation error:', error)
       alert('Failed to create workflow')
     }
   }
@@ -212,7 +216,6 @@ Steps: ${workflow.steps?.length || 0}
         alert(`Failed to advance workflow: ${data.message}`)
       }
     } catch (error) {
-      console.error('Advance error:', error)
       alert('Failed to advance workflow')
     }
   }
@@ -242,8 +245,34 @@ Steps: ${workflow.steps?.length || 0}
         alert(`Failed to move workflow backward: ${data.message}`)
       }
     } catch (error) {
-      console.error('Backward error:', error)
       alert('Failed to move workflow backward')
+    }
+  }
+
+  const handleDeleteWorkflow = async (workflow: any) => {
+    if (!token) return
+    
+    const confirmed = confirm(`Are you sure you want to delete workflow "${workflow.name}"? This action cannot be undone.`)
+    if (!confirmed) return
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/workflows/${workflow._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        setWorkflows(prev => prev.filter((w: any) => w._id !== workflow._id))
+        alert(`Workflow "${workflow.name}" deleted successfully!`)
+      } else {
+        const data = await response.json()
+        alert(`Failed to delete workflow: ${data.message}`)
+      }
+    } catch (error) {
+      alert('Failed to delete workflow')
     }
   }
 
@@ -276,7 +305,6 @@ Steps: ${workflow.steps?.length || 0}
         alert(`Failed to ${action} workflow: ${data.message}`)
       }
     } catch (error) {
-      console.error(`Failed to ${action} workflow:`, error)
       alert(`Failed to ${action} workflow`)
     }
   }
@@ -346,7 +374,7 @@ Steps: ${workflow.steps?.length || 0}
                           </SelectTrigger>
                           <SelectContent>
                             {workflowTemplates.slice(1).map((template) => (
-                              <SelectItem key={template} value={template.toLowerCase().replace(" ", "-")}>
+                              <SelectItem key={template} value={template.toLowerCase().replace(/\s+/g, '-')}>
                                 {template}
                               </SelectItem>
                             ))}
@@ -453,7 +481,7 @@ Steps: ${workflow.steps?.length || 0}
                     </SelectTrigger>
                     <SelectContent>
                       {workflowTemplates.map((template) => (
-                        <SelectItem key={template} value={template}>
+                        <SelectItem key={template} value={template === "All Templates" ? template : template.toLowerCase().replace(/\s+/g, '-')}>
                           {template}
                         </SelectItem>
                       ))}
@@ -572,6 +600,15 @@ Steps: ${workflow.steps?.length || 0}
                                   </>
                                 )}
                               </DropdownMenuItem>
+                              {(user?.role === "admin" || (user?.role === "manager" && workflow.createdBy?._id === user._id) || (user?.role === "user" && workflow.createdBy?._id === user._id)) && (
+                                <DropdownMenuItem 
+                                  onClick={() => handleDeleteWorkflow(workflow)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>

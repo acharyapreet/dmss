@@ -76,7 +76,6 @@ router.get('/stats', authenticate, async (req, res) => {
       data: { stats }
     });
   } catch (error) {
-    console.error('Get dashboard stats error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get dashboard statistics',
@@ -107,7 +106,6 @@ router.get('/activities', authenticate, async (req, res) => {
       data: { activities }
     });
   } catch (error) {
-    console.error('Get activities error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get activities',
@@ -139,7 +137,6 @@ router.get('/users', authenticate, async (req, res) => {
       data: { users }
     });
   } catch (error) {
-    console.error('Get users error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get users',
@@ -180,7 +177,6 @@ router.get('/document-stats', authenticate, async (req, res) => {
       data: { documentStats }
     });
   } catch (error) {
-    console.error('Get document stats error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get document statistics',
@@ -221,7 +217,6 @@ router.get('/workflow-stats', authenticate, async (req, res) => {
       data: { workflowStats }
     });
   } catch (error) {
-    console.error('Get workflow stats error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get workflow statistics',

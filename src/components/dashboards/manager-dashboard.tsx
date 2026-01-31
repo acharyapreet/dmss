@@ -64,17 +64,10 @@ export function ManagerDashboard() {
   useEffect(() => {
     const fetchManagerData = async () => {
       if (!token) {
-        console.log('❌ Manager Dashboard: No token available')
         return
       }
       
-      console.log('🔍 Manager Dashboard: Starting data fetch...')
-      console.log('Token available:', !!token)
-      console.log('API URL:', import.meta.env.VITE_API_URL || 'http://localhost:5004/api')
-      
       try {
-        console.log('📤 Manager Dashboard: Making parallel API calls...')
-        
         // Make all API calls in parallel for better performance
         const [statsResponse, docsResponse, workflowsResponse, caseFilesResponse] = await Promise.all([
           fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/dashboard/stats`, {
@@ -91,53 +84,38 @@ export function ManagerDashboard() {
           })
         ])
 
-        console.log('📥 Manager Dashboard: API responses received:')
-        console.log('Stats response:', statsResponse.status, statsResponse.ok)
-        console.log('Documents response:', docsResponse.status, docsResponse.ok)
-        console.log('Workflows response:', workflowsResponse.status, workflowsResponse.ok)
-        console.log('Case files response:', caseFilesResponse.status, caseFilesResponse.ok)
-
         // Process responses
         if (statsResponse.ok) {
           const statsData = await statsResponse.json()
-          console.log('✅ Manager Dashboard: Stats data:', statsData.data?.stats)
           setStats(statsData.data?.stats || {})
         } else {
-          console.error('❌ Manager Dashboard: Failed to fetch stats:', statsResponse.status)
           setStats({})
         }
 
         if (docsResponse.ok) {
           const docsData = await docsResponse.json()
-          console.log('✅ Manager Dashboard: Documents data:', docsData.data?.documents?.length, 'documents')
           setDocuments(docsData.data?.documents || [])
         } else {
-          console.error('❌ Manager Dashboard: Failed to fetch documents:', docsResponse.status)
           setDocuments([])
         }
 
         if (workflowsResponse.ok) {
           const workflowsData = await workflowsResponse.json()
-          console.log('✅ Manager Dashboard: Workflows data:', workflowsData.data?.workflows?.length, 'workflows')
           setWorkflows(workflowsData.data?.workflows || [])
         } else {
-          console.error('❌ Manager Dashboard: Failed to fetch workflows:', workflowsResponse.status)
           setWorkflows([])
         }
 
         if (caseFilesResponse.ok) {
           const caseFilesData = await caseFilesResponse.json()
-          console.log('✅ Manager Dashboard: Case files data:', caseFilesData.data?.caseFiles?.length, 'case files')
           setCaseFiles(caseFilesData.data?.caseFiles || [])
         } else {
-          console.error('❌ Manager Dashboard: Failed to fetch case files:', caseFilesResponse.status)
           setCaseFiles([])
         }
 
       } catch (error) {
-        console.error('❌ Manager Dashboard: Failed to fetch data:', error)
+        // Handle error silently
       } finally {
-        console.log('✅ Manager Dashboard: Data fetch completed')
         setLoading(false)
       }
     }
@@ -153,8 +131,6 @@ export function ManagerDashboard() {
     if (!confirmed) return
     
     try {
-      console.log(`📋 ${action}ing document:`, document._id)
-      
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/documents/${document._id}`, {
         method: 'PUT',
         headers: {
@@ -187,8 +163,6 @@ export function ManagerDashboard() {
     if (!confirmed) return
     
     try {
-      console.log('⚡ Advancing workflow:', workflow._id)
-      
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/workflows/${workflow._id}/advance`, {
         method: 'PUT',
         headers: {
@@ -207,7 +181,6 @@ export function ManagerDashboard() {
         alert(`Failed to advance workflow: ${data.message}`)
       }
     } catch (error) {
-      console.error('❌ Failed to advance workflow:', error)
       alert('Failed to advance workflow')
     }
   }
@@ -220,8 +193,6 @@ export function ManagerDashboard() {
     if (!confirmed) return
     
     try {
-      console.log('⬅️ Moving workflow backward:', workflow._id)
-      
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/workflows/${workflow._id}/backward`, {
         method: 'PUT',
         headers: {
@@ -240,8 +211,35 @@ export function ManagerDashboard() {
         alert(`Failed to move workflow backward: ${data.message}`)
       }
     } catch (error) {
-      console.error('❌ Failed to move workflow backward:', error)
       alert('Failed to move workflow backward')
+    }
+  }
+
+  // Handle workflow deletion
+  const handleWorkflowDelete = async (workflow: any) => {
+    if (!token) return
+    
+    const confirmed = confirm(`Are you sure you want to delete workflow "${workflow.name}"? This action cannot be undone.`)
+    if (!confirmed) return
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/workflows/${workflow._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        setWorkflows(prev => prev.filter((w: any) => w._id !== workflow._id))
+        alert(`Workflow "${workflow.name}" deleted successfully!`)
+      } else {
+        const data = await response.json()
+        alert(`Failed to delete workflow: ${data.message}`)
+      }
+    } catch (error) {
+      alert('Failed to delete workflow')
     }
   }
 
@@ -256,8 +254,6 @@ export function ManagerDashboard() {
     if (!token) return
     
     try {
-      console.log('📜 Fetching history data...')
-      
       // Fetch audit logs for manager activities
       const historyResponse = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/audit`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -279,8 +275,6 @@ export function ManagerDashboard() {
     if (!token) return
     
     try {
-      console.log(`📁 ${action}ing case file:`, caseFile._id)
-      
       // Map actions to correct case file statuses
       const newStatus = action === 'approve' ? 'in-progress' : 'closed';
       
@@ -319,10 +313,6 @@ export function ManagerDashboard() {
     }
     
     try {
-      console.log('📄 Creating document:', createDocumentForm)
-      console.log('API URL:', import.meta.env.VITE_API_URL || 'http://localhost:5004/api')
-      console.log('Token:', token ? 'Present' : 'Missing')
-      
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/documents`, {
         method: 'POST',
         headers: {
@@ -332,23 +322,17 @@ export function ManagerDashboard() {
         body: JSON.stringify(createDocumentForm)
       })
       
-      console.log('Response status:', response.status)
-      console.log('Response ok:', response.ok)
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('Document created successfully:', data)
         setDocuments(prev => [data.data.document, ...prev])
         setCreateDocumentForm({ title: '', type: '', description: '' })
         setIsCreateDocumentOpen(false)
         alert('Document created successfully!')
       } else {
         const data = await response.json()
-        console.error('Failed to create document:', data)
         alert(`Failed to create document: ${data.message}`)
       }
     } catch (error) {
-      console.error('❌ Failed to create document:', error)
       alert('Failed to create document')
     }
   }
@@ -513,7 +497,6 @@ export function ManagerDashboard() {
               <CardDescription>Documents requiring your review</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-              console.log('Manager Dashboard: Navigating to /documents')
               navigate('/documents')
             }}>
               View All
@@ -582,7 +565,6 @@ export function ManagerDashboard() {
               <CardDescription>Recent workflows requiring attention</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-              console.log('Manager Dashboard: Navigating to /workflows')
               navigate('/workflows')
             }}>
               View All
@@ -597,8 +579,6 @@ export function ManagerDashboard() {
                   .filter(w => w.status === 'pending' || w.status === 'in-progress')
                   .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                   .slice(0, 4);
-                
-                console.log('📊 Manager Dashboard: Showing unfinished workflows:', unfinishedWorkflows.length);
                 
                 return unfinishedWorkflows.length > 0 ? unfinishedWorkflows.map((workflow: any) => (
                 <div
@@ -637,6 +617,13 @@ export function ManagerDashboard() {
                           ←
                         </Button>
                       )}
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => handleWorkflowDelete(workflow)}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -659,7 +646,6 @@ export function ManagerDashboard() {
             <CardDescription>Case files requiring attention</CardDescription>
           </div>
           <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-            console.log('Manager Dashboard: Navigating to /case-files')
             navigate('/case-files')
           }}>
             View All Cases

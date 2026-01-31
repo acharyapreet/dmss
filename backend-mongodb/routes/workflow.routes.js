@@ -53,7 +53,6 @@ router.get('/', authenticate, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get workflows error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get workflows',
@@ -90,7 +89,6 @@ router.get('/:id', authenticate, async (req, res) => {
       data: { workflow }
     });
   } catch (error) {
-    console.error('Get workflow error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get workflow',
@@ -136,7 +134,6 @@ router.post('/', authenticate, async (req, res) => {
       data: { workflow }
     });
   } catch (error) {
-    console.error('Create workflow error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create workflow',
@@ -214,7 +211,6 @@ router.put('/:id', authenticate, async (req, res) => {
       data: { workflow }
     });
   } catch (error) {
-    console.error('Update workflow error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update workflow',
@@ -285,7 +281,6 @@ router.put('/:id/advance', authenticate, async (req, res) => {
       data: { workflow }
     });
   } catch (error) {
-    console.error('Advance workflow error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to advance workflow',
@@ -360,7 +355,6 @@ router.put('/:id/backward', authenticate, async (req, res) => {
       data: { workflow }
     });
   } catch (error) {
-    console.error('Move workflow backward error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to move workflow backward',
@@ -406,7 +400,6 @@ router.delete('/:id', authenticate, async (req, res) => {
       message: 'Workflow deleted successfully'
     });
   } catch (error) {
-    console.error('Delete workflow error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete workflow',

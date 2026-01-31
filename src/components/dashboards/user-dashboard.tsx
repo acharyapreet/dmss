@@ -58,17 +58,10 @@ export function UserDashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!token) {
-        console.log('❌ User Dashboard: No token available')
         return
       }
       
-      console.log('🔍 User Dashboard: Starting data fetch...')
-      console.log('Token available:', !!token)
-      console.log('API URL:', import.meta.env.VITE_API_URL || 'http://localhost:5004/api')
-      
       try {
-        console.log('📤 User Dashboard: Making parallel API calls...')
-        
         // Make all API calls in parallel for better performance
         const [statsResponse, docsResponse, workflowsResponse, caseFilesResponse] = await Promise.all([
           fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/dashboard/stats`, {
@@ -85,53 +78,38 @@ export function UserDashboard() {
           })
         ])
         
-        console.log('📥 User Dashboard: API responses received:')
-        console.log('Stats response:', statsResponse.status, statsResponse.ok)
-        console.log('Documents response:', docsResponse.status, docsResponse.ok)
-        console.log('Workflows response:', workflowsResponse.status, workflowsResponse.ok)
-        console.log('Case files response:', caseFilesResponse.status, caseFilesResponse.ok)
-        
         // Process responses
         if (statsResponse.ok) {
           const statsData = await statsResponse.json()
-          console.log('✅ User Dashboard: Stats data:', statsData.data.stats)
           setStats(statsData.data.stats)
         } else {
-          console.error('❌ User Dashboard: Failed to fetch stats:', statsResponse.status)
           setStats({})
         }
 
         if (docsResponse.ok) {
           const docsData = await docsResponse.json()
-          console.log('✅ User Dashboard: Documents data:', docsData.data.documents?.length, 'documents')
           setDocuments(docsData.data.documents || [])
         } else {
-          console.error('❌ User Dashboard: Failed to fetch documents:', docsResponse.status)
           setDocuments([])
         }
 
         if (workflowsResponse.ok) {
           const workflowsData = await workflowsResponse.json()
-          console.log('✅ User Dashboard: Workflows data:', workflowsData.data.workflows?.length, 'workflows')
           setWorkflows(workflowsData.data.workflows || [])
         } else {
-          console.error('❌ User Dashboard: Failed to fetch workflows:', workflowsResponse.status)
           setWorkflows([])
         }
 
         if (caseFilesResponse.ok) {
           const caseFilesData = await caseFilesResponse.json()
-          console.log('✅ User Dashboard: Case files data:', caseFilesData.data.caseFiles?.length, 'case files')
           setCaseFiles(caseFilesData.data.caseFiles || [])
         } else {
-          console.error('❌ User Dashboard: Failed to fetch case files:', caseFilesResponse.status)
           setCaseFiles([])
         }
 
       } catch (error) {
-        console.error('❌ User Dashboard: Failed to fetch dashboard data:', error)
+        // Handle error silently
       } finally {
-        console.log('✅ User Dashboard: Data fetch completed')
         setLoading(false)
       }
     }
@@ -143,10 +121,6 @@ export function UserDashboard() {
   const handleCreateDocument = async (formData: any) => {
     if (!token) return
     
-    console.log('Creating document with data:', formData)
-    console.log('API URL:', import.meta.env.VITE_API_URL || 'http://localhost:5004/api')
-    console.log('Token:', token ? 'Present' : 'Missing')
-    
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/documents`, {
         method: 'POST',
@@ -157,24 +131,46 @@ export function UserDashboard() {
         body: JSON.stringify(formData)
       })
       
-      console.log('Response status:', response.status)
-      console.log('Response ok:', response.ok)
-      
       if (response.ok) {
         const data = await response.json()
-        console.log('Document created successfully:', data)
         setIsCreateDocDialogOpen(false)
         setDocForm({ title: '', type: '', description: '' })
         // Refresh documents
         window.location.reload()
       } else {
         const data = await response.json()
-        console.error('Failed to create document:', data)
         alert(`Failed to create document: ${data.message}`)
       }
     } catch (error) {
-      console.error('Failed to create document:', error)
       alert('Failed to create document')
+    }
+  }
+
+  // Handle workflow deletion
+  const handleWorkflowDelete = async (workflow: any) => {
+    if (!token) return
+    
+    const confirmed = confirm(`Are you sure you want to delete workflow "${workflow.name}"? This action cannot be undone.`)
+    if (!confirmed) return
+    
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5004/api'}/workflows/${workflow._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (response.ok) {
+        setWorkflows(prev => prev.filter((w: any) => w._id !== workflow._id))
+        alert(`Workflow "${workflow.name}" deleted successfully!`)
+      } else {
+        const data = await response.json()
+        alert(`Failed to delete workflow: ${data.message}`)
+      }
+    } catch (error) {
+      alert('Failed to delete workflow')
     }
   }
 
@@ -489,7 +485,6 @@ export function UserDashboard() {
               <CardDescription>Recent document activity</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-              console.log('User Dashboard: Navigating to /documents')
               navigate('/documents')
             }}>
               View All
@@ -542,7 +537,6 @@ export function UserDashboard() {
               <CardDescription>Your most recent unfinished workflows</CardDescription>
             </div>
             <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-              console.log('User Dashboard: Navigating to /workflows')
               navigate('/workflows')
             }}>
               View All
@@ -558,8 +552,6 @@ export function UserDashboard() {
                   .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                   .slice(0, 4);
                 
-                console.log('📊 User Dashboard: Showing unfinished workflows:', unfinishedWorkflows.length);
-                
                 return unfinishedWorkflows.length > 0 ? unfinishedWorkflows.map((workflow: any) => (
                 <div
                   key={workflow._id}
@@ -567,7 +559,16 @@ export function UserDashboard() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm font-medium text-foreground">{workflow.name}</p>
-                    <StatusBadge status={workflow.status as "in-progress" | "pending" | "completed"} />
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={workflow.status as "in-progress" | "pending" | "completed"} />
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => handleWorkflowDelete(workflow)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs text-muted-foreground">
@@ -602,7 +603,6 @@ export function UserDashboard() {
             <CardDescription>View status of your case files</CardDescription>
           </div>
           <Button variant="ghost" size="sm" className="text-primary" onClick={() => {
-            console.log('User Dashboard: Navigating to /case-files')
             navigate('/case-files')
           }}>
             View All

@@ -56,7 +56,6 @@ router.get('/', authenticate, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Get documents error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get documents',
@@ -91,7 +90,6 @@ router.get('/:id', authenticate, async (req, res) => {
       data: { document }
     });
   } catch (error) {
-    console.error('Get document error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to get document',
@@ -103,14 +101,9 @@ router.get('/:id', authenticate, async (req, res) => {
 // Create new document
 router.post('/', authenticate, async (req, res) => {
   try {
-    console.log('Document creation request received');
-    console.log('User:', req.user ? `${req.user.email} (${req.user.role})` : 'No user');
-    console.log('Request body:', req.body);
-    
     const { title, description, type } = req.body;
 
     if (!title || !type) {
-      console.log('Missing required fields:', { title: !!title, type: !!type });
       return res.status(400).json({
         success: false,
         message: 'Title and type are required'
@@ -124,7 +117,6 @@ router.post('/', authenticate, async (req, res) => {
       owner: req.user._id
     });
 
-    console.log('Creating document:', document);
     await document.save();
     await document.populate('owner', 'firstName lastName fullName email');
 
@@ -139,14 +131,12 @@ router.post('/', authenticate, async (req, res) => {
       userAgent: req.get('User-Agent')
     });
 
-    console.log('Document created successfully:', document._id);
     res.status(201).json({
       success: true,
       message: 'Document created successfully',
       data: { document }
     });
   } catch (error) {
-    console.error('Create document error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create document',
@@ -202,7 +192,6 @@ router.put('/:id', authenticate, async (req, res) => {
       data: { document }
     });
   } catch (error) {
-    console.error('Update document error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update document',
@@ -248,7 +237,6 @@ router.delete('/:id', authenticate, async (req, res) => {
       message: 'Document deleted successfully'
     });
   } catch (error) {
-    console.error('Delete document error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete document',

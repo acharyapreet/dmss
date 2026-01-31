@@ -42,6 +42,11 @@ const workflowSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  template: {
+    type: String,
+    trim: true,
+    default: 'general'
+  },
   document: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Document',
